@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Dark Layout - Minecraft Server Downloads</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: rgb(15, 15, 15);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .side-panel {
+            width: 75px;
+            height: 100vh;
+            background-color: rgb(35, 35, 35);
+            flex-shrink: 0;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .panel-btn {
+            width: 100%;
+            height: 55px;
+            background: transparent;
+            border: none;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999999;
+            outline: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .panel-btn:hover {
+            color: #ffffff;
+            background-color: rgb(45, 45, 45);
+        }
+
+        .panel-btn.active {
+            background-color: rgb(52, 52, 52);
+            color: #ffffff;
+        }
+
+        .panel-btn.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #ff5722;
+        }
+
+        .panel-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            display: block;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            flex-direction: column;
+            padding-top: 40px;
+            padding-bottom: 40px;
+            padding-left: 20px;
+            padding-right: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .main-content::-webkit-scrollbar-track {
+            background: rgb(15, 15, 15);
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background: rgb(45, 45, 45);
+            border-radius: 4px;
+        }
+
+        .main-content::-webkit-scrollbar-thumb:hover {
+            background: rgb(65, 65, 65);
+        }
+
+        .versions-content {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .versions-content.visible {
+            display: flex;
+        }
+
+        .title-text {
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 36px;
+            user-select: none;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .category-tabs {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            justify-content: center;
+            width: 100%;
+            border-bottom: 1px solid rgb(35, 35, 35);
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background-color: rgb(28, 28, 28);
+            color: #a0a0a0;
+            border: none;
+            border-radius: 6px 6px 0 0;
+            padding: 10px 24px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+            position: relative;
+        }
+
+        .tab-btn:hover {
+            color: #ffffff;
+            background-color: rgb(38, 38, 38);
+        }
+
+        .tab-btn.active {
+            background-color: rgb(35, 35, 35);
+            color: #ffffff;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #ff5722;
+            border-radius: 2px 2px 0 0;
+        }
+
+        .loading-spinner {
+            color: #888;
+            font-size: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .boxes-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .version-box {
+            width: 100%;
+            min-height: 70px;
+            background-color: rgb(35, 35, 35);
+            border-radius: 6px;
+            animation: fadeInBox 0.25s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border: 1px solid transparent;
+            transition: border-color 0.15s ease;
+        }
+
+        .version-box:hover {
+            border-color: rgb(55, 55, 55);
+        }
+
+        .version-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .version-title {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .version-subtitle {
+            color: #888888;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .download-action-btn {
+            background-color: #2f80ed;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px;
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            text-decoration: none;
+        }
+
+        .download-action-btn:hover {
+            background-color: #1a6ed8;
+        }
+
+        .download-action-btn:active {
+            transform: scale(0.97);
+        }
+
+        .download-action-btn.downloading {
+            background-color: #27ae60;
+            cursor: wait;
+        }
+
+        .download-action-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke-width: 2.5;
+        }
+
+
+        button.download-action-btn {
+            font-family: inherit;
+            min-width: 140px;
+        }
+
+        .download-action-btn:disabled {
+            cursor: wait;
+        }
+
+        .row-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .secondary-btn {
+            background-color: rgb(52, 52, 52);
+            box-shadow: none;
+        }
+
+        .secondary-btn:hover {
+            background-color: rgb(65, 65, 65);
+        }
+
+        .notice {
+            width: 100%;
+            background-color: rgb(28, 28, 28);
+            border-left: 4px solid #ff5722;
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            color: #bbbbbb;
+            font-size: 14px;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .notice code {
+            background: rgb(40, 40, 40);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .error-box {
+            color: #ff8a65;
+            text-align: center;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .version-box {
+            gap: 16px;
+        }
+
+
+        .panel-btn.bottom {
+            margin-top: auto;
+        }
+
+        .panel-btn:focus-visible,
+        .download-action-btn:focus-visible,
+        .tab-btn:focus-visible {
+            outline: 2px solid #2f80ed;
+            outline-offset: 2px;
+        }
+
+        /* Settings page */
+        .settings-content {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .settings-content.visible {
+            display: flex;
+        }
+
+        .settings-section {
+            width: 100%;
+            background-color: rgb(35, 35, 35);
+            border-radius: 6px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .settings-section + .settings-section {
+            margin-top: 16px;
+        }
+
+        .modal-card a {
+            color: #6aa8ff;
+        }
+
+        .setting-text {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .setting-name {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .setting-value {
+            color: #ffffff;
+            font-size: 14px;
+            background: rgb(25, 25, 25);
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: Consolas, 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .setting-hint {
+            color: #888888;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .download-action-btn:disabled:not(.downloading) {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* First-download folder modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-card {
+            background: rgb(35, 35, 35);
+            border-radius: 8px;
+            border-top: 4px solid #ff5722;
+            padding: 24px;
+            max-width: 460px;
+            width: 100%;
+            color: #cccccc;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .modal-card h2 {
+            color: #ffffff;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .modal-card code {
+            background: rgb(25, 25, 25);
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Installed: 3-dot button, menu, RAM window */
+        .icon-btn {
+            background-color: rgb(35, 35, 35);
+            color: #999999;
+            border: none;
+            border-radius: 6px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .icon-btn:hover,
+        .icon-btn[aria-expanded="true"] {
+            background-color: rgb(52, 52, 52);
+            color: #ffffff;
+        }
+
+        .icon-btn:focus-visible {
+            outline: 2px solid #2f80ed;
+            outline-offset: 2px;
+        }
+
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .context-menu {
+            position: fixed;
+            z-index: 150;
+            background-color: rgb(45, 45, 45);
+            border-radius: 6px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            padding: 6px 0;
+            min-width: 170px;
+            display: none;
+        }
+
+        .context-menu.show {
+            display: block;
+        }
+
+        .context-menu button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            color: #dddddd;
+            padding: 10px 16px;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .context-menu button:hover,
+        .context-menu button:focus-visible {
+            background-color: rgb(58, 58, 58);
+            color: #ffffff;
+        }
+
+        .modal-card.small {
+            max-width: 380px;
+        }
+
+        .ram-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 18px 0 8px;
+        }
+
+        .ram-row input[type="range"] {
+            flex: 1;
+            accent-color: #ff5722;
+            cursor: pointer;
+        }
+
+        .ram-value {
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 22px;
+            min-width: 70px;
+            text-align: right;
+        }
+
+        .modal-hint {
+            color: #888888;
+            font-size: 13px;
+        }
+
+        /* Toast notification for download feedback */
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgb(45, 45, 45);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            border-left: 4px solid #ff5722;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .toast-notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes fadeInBox {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="side-panel">
+        <button class="panel-btn active" id="downloadBtn" title="Versions" aria-label="Versions" onclick="showView('versions')">
+            <svg viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+        </button>
+        <button class="panel-btn" id="installedBtn" title="Installed" aria-label="Installed" onclick="showView('installed')">
+            <svg viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+        </button>
+        <button class="panel-btn bottom" id="settingsBtn" title="Settings" aria-label="Settings" onclick="showView('settings')">
+            <svg viewBox="0 0 24 24">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="main-content">
+        <div id="versionsContent" class="versions-content visible">
+            <h1 class="title-text">Versions</h1>
+            <div class="category-tabs">
+                <button class="tab-btn active" id="tab-spigot" onclick="switchCategory('Spigot')">Spigot</button>
+                <button class="tab-btn" id="tab-bukkit" onclick="switchCategory('Bukkit')">Bukkit</button>
+                <button class="tab-btn" id="tab-paper" onclick="switchCategory('Paper')">Paper</button>
+                <button class="tab-btn" id="tab-purpur" onclick="switchCategory('Purpur')">Purpur</button>
+            </div>
+            <div class="boxes-container" id="boxesContainer">
+                <!-- Version boxes rendered dynamically via script -->
+            </div>
+        </div>
+
+        <div id="installedContent" class="versions-content">
+            <h1 class="title-text">Installed</h1>
+            <div class="category-tabs" id="installedTabs"></div>
+            <div class="boxes-container" id="installedContainer">
+                <!-- Installed jars rendered dynamically via script -->
+            </div>
+        </div>
+
+        <div id="settingsContent" class="settings-content">
+            <h1 class="title-text">Settings</h1>
+            <div class="settings-section">
+                <div class="setting-text">
+                    <span class="setting-name">Downloads folder</span>
+                    <span class="setting-value" id="folderValue">Not set yet</span>
+                    <span class="setting-hint" id="folderHint">A folder is created on your first download.</span>
+                </div>
+                <div class="row-actions">
+                    <button class="download-action-btn secondary-btn" id="resetFolderBtn" onclick="resetFolder()"><span>Reset</span></button>
+                    <button class="download-action-btn" id="changeFolderBtn" onclick="changeFolder()"><span>Change folder</span></button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <div class="setting-text">
+                    <span class="setting-name">Play button</span>
+                    <span class="setting-hint">Play uses a small helper to start servers on your PC. Run the setup again if Play stops working or you changed the downloads folder.</span>
+                </div>
+                <div class="row-actions">
+                    <button class="download-action-btn" id="playSetupBtn" onclick="runPlaySetup()"><span>Set up again</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast-notification">Downloading jar...</div>
+
+    <div class="context-menu" id="contextMenu" role="menu"></div>
+
+    <div class="modal-overlay" id="playSetupModal" role="dialog" aria-modal="true" aria-labelledby="playSetupTitle">
+        <div class="modal-card">
+            <h2 id="playSetupTitle">One-time setup for Play</h2>
+            <p>Browsers can't start programs by themselves, so Play needs a small helper on your PC.</p>
+            <p style="margin-top:10px">Open <code id="playSetupFolder">Minecraft Server Jars</code>, double-click <code>setup-play-button.bat</code>, then press Done.</p>
+            <p class="modal-hint" style="margin-top:10px">Starting a server accepts the <a href="https://www.minecraft.net/eula" target="_blank" rel="noopener noreferrer">Minecraft EULA</a>.</p>
+            <div class="modal-actions">
+                <button class="download-action-btn secondary-btn" id="playSetupCancel"><span>Cancel</span></button>
+                <button class="download-action-btn secondary-btn" id="playSetupOpen"><span>Open Folder</span></button>
+                <button class="download-action-btn" id="playSetupDone"><span>Done</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="ramModal" role="dialog" aria-modal="true" aria-labelledby="ramModalTitle">
+        <div class="modal-card small">
+            <h2 id="ramModalTitle">Server options</h2>
+            <label for="ramSlider">Server RAM</label>
+            <div class="ram-row">
+                <input type="range" id="ramSlider" min="1" max="32" step="1" value="4">
+                <span class="ram-value" id="ramValue">4 GB</span>
+            </div>
+            <p class="modal-hint">Saved to run.bat as -Xms and -Xmx. Leave at least 2–4 GB free for Windows.</p>
+            <div class="modal-actions">
+                <button class="download-action-btn secondary-btn" id="ramCancel"><span>Cancel</span></button>
+                <button class="download-action-btn" id="ramSave"><span>Save</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="folderModal" role="dialog" aria-modal="true" aria-labelledby="folderModalTitle">
+        <div class="modal-card">
+            <h2 id="folderModalTitle">Where should server jars go?</h2>
+            <p>Pick a location and a <code>Minecraft Server Jars</code> folder will be created inside it. Your Downloads folder is a good choice. You can change this later in Settings.</p>
+            <div class="modal-actions">
+                <button class="download-action-btn secondary-btn" id="folderModalCancel"><span>Cancel</span></button>
+                <button class="download-action-btn" id="folderModalChoose"><span>Choose location</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const downloadSvg = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+        `;
+
+        const playSvg = `
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+        `;
+
+        // Official BuildTools (the only thing SpigotMC itself distributes)
+        const BUILDTOOLS_URL = 'https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar';
+
+        // ---------- helpers ----------
+        const isRelease = v => /^\d+(\.\d+)+$/.test(v); // drops snapshots, -pre, -rc
+        function compareVersionsDesc(a, b) {
+            const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+            for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const d = (pb[i] || 0) - (pa[i] || 0);
+                if (d) return d;
+            }
+            return 0;
+        }
+
+        async function getJson(url) {
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!res.ok) throw new Error(`${new URL(url).host} returned HTTP ${res.status}`);
+            return res.json();
+        }
+
+        // ---------- sources ----------
+        // Spigot: SpigotMC publishes no jars, so prebuilt ones come from MCJars (mcjars.app).
+        let spigotIndexPromise = null;
+        function getSpigotIndex() {
+            if (!spigotIndexPromise) {
+                spigotIndexPromise = getJson('https://mcjars.app/api/v2/builds/SPIGOT')
+                    .then(data => Object.entries(data.builds || {})
+                        .filter(([ver, info]) => isRelease(ver) && (!info.type || info.type === 'RELEASE'))
+                        .sort(([a], [b]) => compareVersionsDesc(a, b)))
+                    .catch(err => { spigotIndexPromise = null; throw err; });
+            }
+            return spigotIndexPromise;
+        }
+
+        async function loadSpigot() {
+            const index = await getSpigotIndex();
+            return {
+                notice: 'SpigotMC only distributes BuildTools, so these are prebuilt jars mirrored by MCJars.',
+                items: index.map(([ver, info]) => ({
+                    title: `Spigot ${ver}`,
+                    subtitle: [
+                        `Minecraft ${ver}`,
+                        info.latest?.buildNumber ? `Build #${info.latest.buildNumber}` : null,
+                        info.java ? `Java ${info.java}+` : null
+                    ].filter(Boolean).join(' • '),
+                    resolve: async () => {
+                        let url = info.latest?.jarUrl;
+                        if (!url) {
+                            const d = await getJson(`https://mcjars.app/api/v1/builds/SPIGOT/${ver}/latest`);
+                            url = d.build?.jarUrl;
+                        }
+                        if (!url) throw new Error(`No Spigot jar available for ${ver}`);
+                        return { url, filename: `spigot-${ver}.jar`, server: { type: 'spigot', version: ver } };
+                    }
+                }))
+            };
+        }
+
+        // Bukkit (CraftBukkit): no legit prebuilt source exists anywhere; it's built locally with BuildTools.
+        async function loadBukkit() {
+            let index = [];
+            try { index = await getSpigotIndex(); } catch { /* still usable with --rev latest */ }
+            const rows = index.length ? index : [['latest', {}]];
+            return {
+                notice: {
+                    text: 'CraftBukkit has no direct download. Get BuildTools, then run the command for your version in the same folder:',
+                    action: { label: 'Get BuildTools.jar', url: BUILDTOOLS_URL, filename: 'BuildTools.jar' }
+                },
+                items: rows.map(([ver, info]) => {
+                    const command = `java -jar BuildTools.jar --rev ${ver} --compile craftbukkit`;
+                    return {
+                        title: ver === 'latest' ? 'CraftBukkit (latest)' : `CraftBukkit ${ver}`,
+                        subtitle: [command, info.java ? `Java ${info.java}+` : null].filter(Boolean).join(' • '),
+                        copy: command
+                    };
+                })
+            };
+        }
+
+        // Paper: official Fill v3 API (the old api.papermc.io v2 was shut down July 2026).
+        async function loadPaper() {
+            const data = await getJson('https://fill.papermc.io/v3/projects/paper');
+            const versions = Object.values(data.versions || {}).flat()
+                .filter(isRelease).sort(compareVersionsDesc);
+            return {
+                items: versions.map(ver => ({
+                    title: `Paper ${ver}`,
+                    subtitle: `Minecraft ${ver} • Latest stable build`,
+                    resolve: async () => {
+                        const builds = await getJson(`https://fill.papermc.io/v3/projects/paper/versions/${ver}/builds`);
+                        if (!Array.isArray(builds) || !builds.length) throw new Error(`No Paper builds for ${ver}`);
+                        builds.sort((a, b) => b.id - a.id);
+                        const stable = builds.find(b => b.channel === 'STABLE');
+                        const pick = stable || builds[0];
+                        const dl = pick.downloads?.['server:default'];
+                        if (!dl?.url) throw new Error(`Paper ${ver} build #${pick.id} has no server jar`);
+                        return {
+                            url: dl.url,
+                            filename: `paper-${ver}-${pick.id}.jar`,
+                            server: { type: 'paper', version: ver },
+                            note: stable ? null : `No stable build for ${ver} yet, downloading ${String(pick.channel).toLowerCase()} build #${pick.id}`
+                        };
+                    }
+                }))
+            };
+        }
+
+        // Purpur: official API, /latest/download serves the newest build directly.
+        async function loadPurpur() {
+            const data = await getJson('https://api.purpurmc.org/v2/purpur');
+            const versions = (data.versions || []).filter(isRelease).sort(compareVersionsDesc);
+            return {
+                items: versions.map(ver => ({
+                    title: `Purpur ${ver}`,
+                    subtitle: `Minecraft ${ver} • Latest build`,
+                    resolve: async () => ({
+                        url: `https://api.purpurmc.org/v2/purpur/${ver}/latest/download`,
+                        filename: `purpur-${ver}.jar`,
+                        server: { type: 'purpur', version: ver }
+                    })
+                }))
+            };
+        }
+
+        const LOADERS = { Spigot: loadSpigot, Bukkit: loadBukkit, Paper: loadPaper, Purpur: loadPurpur };
+        const cache = new Map();
+
+        // ---------- downloading ----------
+        function clickLink(href, filename, newTab) {
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = filename;
+            if (newTab) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        // ---------- downloads folder (File System Access API, Chrome/Edge/Opera) ----------
+        const FOLDER_NAME = 'Minecraft Server Jars';
+        const fsSupported = typeof window.showDirectoryPicker === 'function';
+
+        // Tiny IndexedDB key-value store; directory handles can only be persisted here.
+        const kv = (() => {
+            let dbPromise;
+            const db = () => dbPromise ||= new Promise((resolve, reject) => {
+                const req = indexedDB.open('mc-jar-downloader', 1);
+                req.onupgradeneeded = () => req.result.createObjectStore('kv');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+            const run = async (mode, fn) => {
+                const store = (await db()).transaction('kv', mode).objectStore('kv');
+                return new Promise((resolve, reject) => {
+                    const req = fn(store);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            };
+            return {
+                get: key => run('readonly', st => st.get(key)),
+                set: (key, val) => run('readwrite', st => st.put(val, key)),
+                del: key => run('readwrite', st => st.delete(key))
+            };
+        })();
+
+        let folder = null; // { handle, label }
+
+        async function loadFolder() {
+            if (!fsSupported) return;
+            try { folder = (await kv.get('downloadFolder')) || null; } catch { folder = null; }
+        }
+
+        async function saveFolder(value) {
+            folder = value;
+            if (value) await kv.set('downloadFolder', value);
+            else await kv.del('downloadFolder');
+            updateSettingsUI();
+        }
+
+        async function hasPermission(handle) {
+            const opts = { mode: 'readwrite' };
+            if (await handle.queryPermission(opts) === 'granted') return true;
+            return (await handle.requestPermission(opts)) === 'granted';
+        }
+
+        // Resolves to true if the user picked a location, false if they cancelled.
+        function askForFirstFolder() {
+            const modal = document.getElementById('folderModal');
+            const choose = document.getElementById('folderModalChoose');
+            const cancel = document.getElementById('folderModalCancel');
+            modal.classList.add('show');
+            choose.focus();
+            return new Promise(resolve => {
+                const close = result => {
+                    modal.classList.remove('show');
+                    choose.onclick = cancel.onclick = null;
+                    resolve(result);
+                };
+                cancel.onclick = () => close(false);
+                choose.onclick = async () => {
+                    try {
+                        const parent = await window.showDirectoryPicker({ id: 'mc-jars', mode: 'readwrite', startIn: 'downloads' });
+                        // Don't nest if they picked an existing "Minecraft Server Jars" folder
+                        const handle = parent.name === FOLDER_NAME
+                            ? parent
+                            : await parent.getDirectoryHandle(FOLDER_NAME, { create: true });
+                        const label = handle === parent ? parent.name : `${parent.name}/${FOLDER_NAME}`;
+                        await saveFolder({ handle, label });
+                        showToast(`Created ${label}`);
+                        close(true);
+                    } catch (err) {
+                        if (err.name !== 'AbortError') showToast(`Couldn't use that folder: ${err.message}`);
+                        close(false);
+                    }
+                };
+            });
+        }
+
+        // Returns a writable directory handle, null for "use the browser's default", or undefined if cancelled.
+        async function getTargetFolder() {
+            if (!fsSupported) return null;
+            if (!folder && !(await askForFirstFolder())) return undefined;
+            if (await hasPermission(folder.handle)) return folder.handle;
+            showToast('Folder access denied, using the browser download instead');
+            return null;
+        }
+
+        async function changeFolder() {
+            try {
+                const handle = await window.showDirectoryPicker({ id: 'mc-jars', mode: 'readwrite', startIn: 'downloads' });
+                await saveFolder({ handle, label: handle.name });
+                showToast(`Downloads will save to ${handle.name}`);
+            } catch (err) {
+                if (err.name !== 'AbortError') showToast(`Couldn't use that folder: ${err.message}`);
+            }
+        }
+
+        async function resetFolder() {
+            await saveFolder(null);
+            showToast('Reset. You will be asked again on the next download');
+        }
+
+        function updateSettingsUI() {
+            const value = document.getElementById('folderValue');
+            const hint = document.getElementById('folderHint');
+            const change = document.getElementById('changeFolderBtn');
+            const reset = document.getElementById('resetFolderBtn');
+            if (!fsSupported) {
+                value.textContent = "Browser's default downloads folder";
+                hint.textContent = 'This browser cannot save to a custom folder. Use Chrome, Edge or Opera to pick one.';
+                change.disabled = reset.disabled = true;
+                return;
+            }
+            value.textContent = folder ? folder.label : 'Not set yet';
+            hint.textContent = folder
+                ? 'Browsers only reveal the folder name, not its full path.'
+                : `A "${FOLDER_NAME}" folder is created on your first download.`;
+            reset.disabled = !folder;
+        }
+
+        // Streams the jar so the button shows progress. Writes straight into the chosen
+        // folder when there is one; otherwise falls back to a normal browser download.
+        // Returns where the file ended up: 'folder' or 'browser'.
+        async function downloadFile(url, filename, dir, onProgress) {
+            let res;
+            try {
+                res = await fetch(url);
+            } catch {
+                // Host blocks cross-origin fetches; only the browser itself can download it.
+                clickLink(url, filename, true);
+                return 'browser';
+            }
+            if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+
+            const total = Number(res.headers.get('Content-Length')) || 0;
+            const reader = res.body.getReader();
+            let received = 0;
+            const tick = n => {
+                received += n;
+                onProgress(total ? `${Math.floor(received / total * 100)}%` : `${(received / 1048576).toFixed(1)} MB`);
+            };
+
+            if (dir) {
+                let writable;
+                try {
+                    writable = await (await dir.getFileHandle(filename, { create: true })).createWritable();
+                } catch (err) {
+                    if (err.name === 'NotFoundError') {
+                        await saveFolder(null);
+                        throw new Error('Your downloads folder was moved or deleted. Click download again to pick a new one');
+                    }
+                    throw err;
+                }
+                try {
+                    for (;;) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        await writable.write(value);
+                        tick(value.length);
+                    }
+                    await writable.close();
+                } catch (err) {
+                    await writable.abort().catch(() => {}); // discard the partial file
+                    throw err;
+                }
+                return 'folder';
+            }
+
+            const chunks = [];
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                tick(value.length);
+            }
+            const blobUrl = URL.createObjectURL(new Blob(chunks, { type: 'application/java-archive' }));
+            clickLink(blobUrl, filename, false);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+            return 'browser';
+        }
+
+        function makeButton(label, extraClass, icon = downloadSvg) {
+            const btn = document.createElement('button');
+            btn.className = 'download-action-btn' + (extraClass ? ' ' + extraClass : '');
+            btn.innerHTML = `${icon} <span></span>`;
+            btn.querySelector('span').textContent = label;
+            return btn;
+        }
+
+        function setLabel(btn, text) { btn.querySelector('span').textContent = text; }
+
+        async function runDownload(btn, getTarget, idleLabel) {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.classList.add('downloading');
+            try {
+                // Folder first, while the click still counts as a user gesture (needed for permission prompts)
+                const dir = await getTargetFolder();
+                if (dir === undefined) return; // user cancelled the folder prompt
+                setLabel(btn, 'Resolving…');
+                const target = await getTarget();
+                // Servers get their own folder (worlds, configs and run.bat live next to the jar)
+                const saveDir = dir && target.server ? await getServerDir(dir, target.server) : dir;
+                showToast(target.note || `Downloading ${target.filename}`);
+                setLabel(btn, '0%');
+                const where = await downloadFile(target.url, target.filename, saveDir, p => setLabel(btn, p));
+                if (where === 'folder') {
+                    if (target.server) {
+                        await finalizeServer(saveDir, target.filename, target.server);
+                        showToast(`Installed ${serverTitle(target.server)} in ${folder.label}/${serverTitle(target.server)}`);
+                    } else {
+                        showToast(`Saved ${target.filename} to ${folder.label}`);
+                    }
+                    if (currentView === 'installed') renderInstalled();
+                }
+                else if (dir) showToast(`That host blocks direct saving, so ${target.filename} went to your browser's downloads`);
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Download failed');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('downloading');
+                setLabel(btn, idleLabel);
+            }
+        }
+
+        async function copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+            }
+            showToast('Command copied');
+        }
+
+        // ---------- rendering ----------
+        let renderToken = 0;
+
+        async function renderBoxes(category) {
+            const token = ++renderToken;
+            const container = document.getElementById('boxesContainer');
+            container.innerHTML = '<div class="loading-spinner">Fetching live version data...</div>';
+
+            let result;
+            try {
+                if (!cache.has(category)) cache.set(category, await LOADERS[category]());
+                result = cache.get(category);
+            } catch (err) {
+                if (token !== renderToken) return;
+                container.innerHTML = '';
+                const box = document.createElement('div');
+                box.className = 'error-box';
+                const msg = document.createElement('div');
+                msg.textContent = `Couldn't load ${category} versions: ${err.message}`;
+                const retry = makeButton('Retry', 'secondary-btn');
+                retry.onclick = () => renderBoxes(category);
+                box.append(msg, retry);
+                container.appendChild(box);
+                return;
+            }
+            if (token !== renderToken) return; // user switched tabs meanwhile
+
+            container.innerHTML = '';
+
+            if (result.notice) {
+                const n = typeof result.notice === 'string' ? { text: result.notice } : result.notice;
+                const notice = document.createElement('div');
+                notice.className = 'notice';
+                const text = document.createElement('span');
+                text.textContent = n.text;
+                notice.appendChild(text);
+                if (n.action) {
+                    const btn = makeButton(n.action.label);
+                    btn.onclick = () => runDownload(btn, async () => ({ url: n.action.url, filename: n.action.filename }), n.action.label);
+                    notice.appendChild(btn);
+                }
+                container.appendChild(notice);
+            }
+
+            if (!result.items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'loading-spinner';
+                empty.textContent = `No ${category} versions found.`;
+                container.appendChild(empty);
+                return;
+            }
+
+            result.items.forEach(item => {
+                const box = document.createElement('div');
+                box.className = 'version-box';
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'version-info';
+                const title = document.createElement('span');
+                title.className = 'version-title';
+                title.textContent = item.title;
+                const subtitle = document.createElement('span');
+                subtitle.className = 'version-subtitle';
+                subtitle.textContent = item.subtitle;
+                infoDiv.append(title, subtitle);
+
+                const actions = document.createElement('div');
+                actions.className = 'row-actions';
+
+                if (item.resolve) {
+                    const btn = makeButton('Download');
+                    btn.onclick = () => runDownload(btn, item.resolve, 'Download');
+                    actions.appendChild(btn);
+                }
+                if (item.copy) {
+                    const btn = makeButton('Copy command', 'secondary-btn');
+                    btn.onclick = () => copyText(item.copy);
+                    actions.appendChild(btn);
+                }
+
+                box.append(infoDiv, actions);
+                container.appendChild(box);
+            });
+        }
+
+        // ---------- installed servers ----------
+        // Layout on disk:  <downloads folder>/<Server Name>/<server jar> + run.bat
+        const SERVER_JAR = /^(spigot|craftbukkit|paper|purpur)-(\d+(?:\.\d+)+)(?:-(\d+))?\.jar$/i;
+        const PRETTY = { spigot: 'Spigot', craftbukkit: 'CraftBukkit', paper: 'Paper', purpur: 'Purpur' };
+        const CATEGORY_OF = { spigot: 'Spigot', craftbukkit: 'Bukkit', paper: 'Paper', purpur: 'Purpur' };
+        const CATEGORIES = ['Spigot', 'Bukkit', 'Paper', 'Purpur'];
+        const DEFAULT_RAM_GB = 4;
+
+        const kebabSvg = `<svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>`;
+
+        const serverTitle = ({ type, version }) => `${PRETTY[type]} ${version}`;
+
+        async function getServerDir(root, server) {
+            try {
+                return await root.getDirectoryHandle(serverTitle(server), { create: true });
+            } catch (err) {
+                if (err.name === 'NotFoundError') {
+                    await saveFolder(null);
+                    throw new Error('Your downloads folder was moved or deleted. Click download again to pick a new one');
+                }
+                throw err;
+            }
+        }
+
+        function parseRam(text) {
+            const m = text.match(/-Xmx(\d+)([MG])/i);
+            if (!m) return null;
+            return m[2].toUpperCase() === 'G' ? Number(m[1]) : Math.max(1, Math.round(Number(m[1]) / 1024));
+        }
+
+        async function readRunBatRam(dir) {
+            try {
+                const file = await (await dir.getFileHandle('run.bat')).getFile();
+                return parseRam(await file.text());
+            } catch {
+                return null;
+            }
+        }
+
+        function runBatText(jarName, ramGb, title) {
+            return [
+                '@echo off',
+                `title ${title}`,
+                'cd /d "%~dp0"',
+                'where java >nul 2>nul || (echo Java was not found. Install it from https://adoptium.net and try again. & pause & exit /b 1)',
+                '>eula.txt echo eula=true',
+                `java -Xms${ramGb}G -Xmx${ramGb}G -jar "${jarName}" nogui`,
+                'pause',
+                ''
+            ].join('\r\n');
+        }
+
+        async function writeRunBat(dir, jarName, ramGb, title) {
+            const writable = await (await dir.getFileHandle('run.bat', { create: true })).createWritable();
+            await writable.write(runBatText(jarName, ramGb, title));
+            await writable.close();
+        }
+
+        // After a download: drop older builds of the same server and (re)write run.bat,
+        // keeping the RAM amount if the user already changed it.
+        async function finalizeServer(dir, jarName, server) {
+            const ram = (await readRunBatRam(dir)) ?? DEFAULT_RAM_GB;
+            const stale = [];
+            for await (const entry of dir.values()) {
+                const m = entry.kind === 'file' && entry.name.match(SERVER_JAR);
+                if (m && m[1].toLowerCase() === server.type && entry.name !== jarName) stale.push(entry.name);
+            }
+            for (const name of stale) await dir.removeEntry(name);
+            await writeRunBat(dir, jarName, ram, serverTitle(server));
+            await writeEula(dir);
+        }
+
+        async function readServerFolder(dir) {
+            let jar = null;
+            for await (const entry of dir.values()) {
+                if (entry.kind !== 'file') continue;
+                const m = entry.name.match(SERVER_JAR);
+                if (!m) continue;
+                const file = await entry.getFile();
+                if (!jar || file.lastModified > jar.file.lastModified) jar = { file, m };
+            }
+            if (!jar) return null;
+            const [, rawType, version, build] = jar.m;
+            const type = rawType.toLowerCase();
+            const ram = await readRunBatRam(dir);
+            return {
+                dir,
+                file: jar.file,
+                jarName: jar.file.name,
+                type,
+                version,
+                build,
+                category: CATEGORY_OF[type],
+                title: serverTitle({ type, version }),
+                ram: ram ?? DEFAULT_RAM_GB,
+                hasRunBat: ram !== null
+            };
+        }
+
+        function installedMessage(container, text, button) {
+            container.innerHTML = '';
+            const box = document.createElement('div');
+            box.className = 'error-box';
+            box.style.color = '#888888';
+            const msg = document.createElement('div');
+            msg.textContent = text;
+            box.appendChild(msg);
+            if (button) box.appendChild(button);
+            container.appendChild(box);
+        }
+
+        let installedToken = 0;
+        let installedServers = [];
+        let installedCategory = null;
+
+        async function renderInstalled() {
+            const token = ++installedToken;
+            const container = document.getElementById('installedContainer');
+            const tabs = document.getElementById('installedTabs');
+            tabs.innerHTML = '';
+
+            if (!fsSupported) {
+                return installedMessage(container, "This browser can't read a downloads folder. Use Chrome, Edge or Opera to see installed versions.");
+            }
+            if (!folder) {
+                const go = makeButton('Browse versions');
+                go.onclick = () => showView('versions');
+                return installedMessage(container, 'Nothing installed yet. Download a version and it will show up here.', go);
+            }
+
+            // Reading the folder may need permission again in a new session; that needs a click.
+            if (await folder.handle.queryPermission({ mode: 'readwrite' }) !== 'granted') {
+                const allow = makeButton('Allow access', null, '');
+                allow.onclick = async () => {
+                    if (await hasPermission(folder.handle)) renderInstalled();
+                    else showToast('Folder access denied');
+                };
+                return installedMessage(container, `Allow access to ${folder.label} to see your installed versions.`, allow);
+            }
+
+            container.innerHTML = '<div class="loading-spinner">Reading downloads folder...</div>';
+
+            const servers = [];
+            try {
+                for await (const entry of folder.handle.values()) {
+                    if (entry.kind !== 'directory') continue;
+                    const server = await readServerFolder(entry);
+                    if (server) servers.push(server);
+                }
+            } catch (err) {
+                if (token !== installedToken) return;
+                if (err.name === 'NotFoundError') {
+                    await saveFolder(null);
+                    return installedMessage(container, 'Your downloads folder was moved or deleted. Download a version to pick a new one.');
+                }
+                return installedMessage(container, `Couldn't read ${folder.label}: ${err.message}`);
+            }
+            if (token !== installedToken) return;
+
+            servers.sort((a, b) => compareVersionsDesc(a.version, b.version));
+            installedServers = servers;
+
+            // First visit: land on the first category that actually has something
+            if (!installedCategory) {
+                installedCategory = CATEGORIES.find(c => servers.some(s => s.category === c)) || 'Spigot';
+            }
+            renderInstalledTabs();
+            renderInstalledList();
+        }
+
+        function renderInstalledTabs() {
+            const tabs = document.getElementById('installedTabs');
+            tabs.innerHTML = '';
+            CATEGORIES.forEach(cat => {
+                const count = installedServers.filter(s => s.category === cat).length;
+                const tab = document.createElement('button');
+                tab.className = 'tab-btn' + (cat === installedCategory ? ' active' : '');
+                tab.textContent = count ? `${cat} (${count})` : cat;
+                tab.onclick = () => {
+                    installedCategory = cat;
+                    renderInstalledTabs();
+                    renderInstalledList();
+                };
+                tabs.appendChild(tab);
+            });
+        }
+
+        function renderInstalledList() {
+            const container = document.getElementById('installedContainer');
+            const list = installedServers.filter(s => s.category === installedCategory);
+
+            if (!list.length) {
+                const go = makeButton(`Browse ${installedCategory}`);
+                go.onclick = () => { showView('versions'); switchCategory(installedCategory); };
+                return installedMessage(container, `No ${installedCategory} servers installed.`, go);
+            }
+
+            container.innerHTML = '';
+            list.forEach(server => {
+                const box = document.createElement('div');
+                box.className = 'version-box';
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'version-info';
+                const title = document.createElement('span');
+                title.className = 'version-title';
+                title.textContent = server.title;
+                const subtitle = document.createElement('span');
+                subtitle.className = 'version-subtitle';
+                subtitle.textContent = [
+                    server.build ? `Build #${server.build}` : null,
+                    `${server.ram} GB RAM`,
+                    `${(server.file.size / 1048576).toFixed(1)} MB`,
+                    `Added ${new Date(server.file.lastModified).toLocaleDateString()}`
+                ].filter(Boolean).join(' • ');
+                infoDiv.append(title, subtitle);
+
+                const actions = document.createElement('div');
+                actions.className = 'row-actions';
+
+                const more = document.createElement('button');
+                more.className = 'icon-btn';
+                more.title = 'More options';
+                more.setAttribute('aria-label', `More options for ${server.title}`);
+                more.setAttribute('aria-haspopup', 'menu');
+                more.setAttribute('aria-expanded', 'false');
+                more.innerHTML = kebabSvg;
+                more.onclick = () => {
+                    if (menuOwner === more) return closeMenu();
+                    openMenu(more, [
+                        { label: 'Open Folder', action: () => openServerFolder(server) },
+                        { label: 'More Options', action: () => openRamModal(server) }
+                    ]);
+                };
+
+                const play = makeButton('Play', null, playSvg);
+                play.onclick = () => playVersion(server);
+
+                actions.append(more, play);
+                box.append(infoDiv, actions);
+                container.appendChild(box);
+            });
+        }
+
+        // ---------- 3-dot menu ----------
+        const contextMenu = document.getElementById('contextMenu');
+        let menuOwner = null;
+
+        function openMenu(anchor, items) {
+            closeMenu();
+            contextMenu.innerHTML = '';
+            items.forEach(({ label, action }) => {
+                const item = document.createElement('button');
+                item.setAttribute('role', 'menuitem');
+                item.textContent = label;
+                item.onclick = () => { closeMenu(); action(); };
+                contextMenu.appendChild(item);
+            });
+            contextMenu.classList.add('show');
+
+            const r = anchor.getBoundingClientRect();
+            let top = r.bottom + 6;
+            if (top + contextMenu.offsetHeight > window.innerHeight - 8) top = r.top - contextMenu.offsetHeight - 6;
+            contextMenu.style.top = `${top}px`;
+            contextMenu.style.left = `${Math.max(8, r.right - contextMenu.offsetWidth)}px`;
+
+            menuOwner = anchor;
+            anchor.setAttribute('aria-expanded', 'true');
+            contextMenu.querySelector('button').focus();
+        }
+
+        function closeMenu() {
+            contextMenu.classList.remove('show');
+            if (menuOwner) menuOwner.setAttribute('aria-expanded', 'false');
+            menuOwner = null;
+        }
+
+        document.addEventListener('click', e => {
+            if (menuOwner && !contextMenu.contains(e.target) && !menuOwner.contains(e.target)) closeMenu();
+        });
+        document.querySelector('.main-content').addEventListener('scroll', closeMenu);
+        window.addEventListener('resize', closeMenu);
+
+        // Browsers can't launch Explorer; the closest thing is a native file dialog opened inside the folder.
+        async function openServerFolder(server) {
+            try {
+                await window.showOpenFilePicker({ startIn: server.dir, multiple: true });
+            } catch (err) {
+                if (err.name !== 'AbortError') showToast(`Couldn't open the folder: ${err.message}`);
+            }
+        }
+
+        // ---------- More Options window (RAM) ----------
+        const ramModal = document.getElementById('ramModal');
+        const ramSlider = document.getElementById('ramSlider');
+        const ramValue = document.getElementById('ramValue');
+        let ramServer = null;
+
+        ramSlider.oninput = () => { ramValue.textContent = `${ramSlider.value} GB`; };
+
+        function openRamModal(server) {
+            ramServer = server;
+            document.getElementById('ramModalTitle').textContent = server.title;
+            ramSlider.max = Math.max(32, server.ram);
+            ramSlider.value = server.ram;
+            ramValue.textContent = `${server.ram} GB`;
+            ramModal.classList.add('show');
+            ramSlider.focus();
+        }
+
+        function closeRamModal() {
+            ramModal.classList.remove('show');
+            ramServer = null;
+        }
+
+        document.getElementById('ramCancel').onclick = closeRamModal;
+        ramModal.addEventListener('click', e => { if (e.target === ramModal) closeRamModal(); });
+
+        document.getElementById('ramSave').onclick = async () => {
+            if (!ramServer) return;
+            const gb = Number(ramSlider.value);
+            try {
+                await writeRunBat(ramServer.dir, ramServer.jarName, gb, ramServer.title);
+                showToast(`${ramServer.title} will start with ${gb} GB`);
+                closeRamModal();
+                renderInstalled();
+            } catch (err) {
+                showToast(`Couldn't update run.bat: ${err.message}`);
+            }
+        };
+
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            closeMenu();
+            if (ramModal.classList.contains('show')) closeRamModal();
+            if (closePlaySetup) closePlaySetup();
+        });
+
+        // ---------- Play ----------
+        // The page can't start processes, so Play hands off to a tiny helper registered as the
+        // mcserver: link type. setup-play-button.bat registers it once (current user only, no admin).
+        // launch.ps1 only accepts names of server folders sitting next to it, so other sites
+        // can't use the link type to run anything else.
+
+        async function writeTextFile(dir, name, text) {
+            const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
+            await writable.write(text);
+            await writable.close();
+        }
+
+        const writeEula = dir => writeTextFile(dir, 'eula.txt', 'eula=true\r\n');
+
+        const LAUNCH_PS1 = [
+            'param([string]$Uri)',
+            "$ErrorActionPreference = 'Stop'",
+            'function Fail($msg) {',
+            "    (New-Object -ComObject WScript.Shell).Popup($msg, 0, 'Minecraft Server', 16) | Out-Null",
+            '    exit 1',
+            '}',
+            "$name = [uri]::UnescapeDataString(($Uri -replace '^mcserver:(//)?', '')).Trim('/', ' ')",
+            "if ($name -notmatch '^(Spigot|CraftBukkit|Paper|Purpur) \\d+(\\.\\d+)+$') { Fail \"Not a server name: $name\" }",
+            '$dir = Join-Path $PSScriptRoot $name',
+            "$bat = Join-Path $dir 'run.bat'",
+            'if (-not (Test-Path -LiteralPath $bat -PathType Leaf)) { Fail "run.bat not found in $dir" }',
+            "Set-Content -LiteralPath (Join-Path $dir 'eula.txt') -Value 'eula=true' -Encoding ASCII",
+            'Start-Process -FilePath $bat -WorkingDirectory $dir',
+            ''
+        ].join('\r\n');
+
+        const SETUP_BAT = [
+            '@echo off',
+            'set "ROOT=%~dp0"',
+            'reg add "HKCU\\Software\\Classes\\mcserver" /ve /d "URL:Minecraft Server Launcher" /f >nul',
+            'reg add "HKCU\\Software\\Classes\\mcserver" /v "URL Protocol" /d "" /f >nul',
+            'reg add "HKCU\\Software\\Classes\\mcserver\\shell\\open\\command" /ve /d "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \\"%ROOT%launch.ps1\\" \\"%%1\\"" /f >nul',
+            'if errorlevel 1 (echo Setup failed. & pause & exit /b 1)',
+            'echo Play button is ready. You can close this window.',
+            'pause',
+            ''
+        ].join('\r\n');
+
+        async function writeLauncherFiles() {
+            await writeTextFile(folder.handle, 'launch.ps1', LAUNCH_PS1);
+            await writeTextFile(folder.handle, 'setup-play-button.bat', SETUP_BAT);
+        }
+
+        // Resolves true when the user says the setup is done, false on cancel.
+        function showPlaySetup() {
+            const modal = document.getElementById('playSetupModal');
+            const done = document.getElementById('playSetupDone');
+            const cancel = document.getElementById('playSetupCancel');
+            const open = document.getElementById('playSetupOpen');
+            document.getElementById('playSetupFolder').textContent = folder.label;
+            modal.classList.add('show');
+            done.focus();
+            return new Promise(resolve => {
+                const close = result => {
+                    modal.classList.remove('show');
+                    done.onclick = cancel.onclick = open.onclick = null;
+                    closePlaySetup = null;
+                    resolve(result);
+                };
+                closePlaySetup = () => close(false);
+                cancel.onclick = () => close(false);
+                done.onclick = () => close(true);
+                open.onclick = async () => {
+                    try {
+                        await window.showOpenFilePicker({ startIn: folder.handle });
+                    } catch { /* dialog closed */ }
+                };
+            });
+        }
+        let closePlaySetup = null;
+
+        async function runPlaySetup() {
+            if (!fsSupported || !folder) return showToast('Download a version first so there is a folder to set up');
+            if (!(await hasPermission(folder.handle))) return showToast('Folder access denied');
+            await writeLauncherFiles();
+            if (await showPlaySetup()) {
+                await kv.set('playReady', true);
+                showToast('Play is ready');
+            }
+        }
+
+        async function playVersion(server) {
+            try {
+                // Refresh run.bat (keeps RAM, adds the EULA + Java checks to older files) and pre-accept the EULA,
+                // so the first launch goes straight through instead of stopping to ask.
+                await writeRunBat(server.dir, server.jarName, server.ram, server.title);
+                await writeEula(server.dir);
+
+                if (!(await kv.get('playReady'))) {
+                    await writeLauncherFiles();
+                    if (!(await showPlaySetup())) return;
+                    await kv.set('playReady', true);
+                }
+
+                window.location.href = `mcserver:${encodeURIComponent(server.title)}`;
+                showToast(`Starting ${server.title}`);
+            } catch (err) {
+                showToast(`Couldn't start ${server.title}: ${err.message}`);
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+        }
+
+        let currentView = 'versions';
+
+        function showView(view) {
+            currentView = view;
+            const views = { versions: 'downloadBtn', installed: 'installedBtn', settings: 'settingsBtn' };
+            for (const [name, btnId] of Object.entries(views)) {
+                document.getElementById(btnId).classList.toggle('active', name === view);
+                document.getElementById(`${name}Content`).classList.toggle('visible', name === view);
+            }
+            closeMenu();
+            if (view === 'installed') renderInstalled();
+        }
+
+        function switchCategory(category) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const activeTab = document.getElementById(`tab-${category.toLowerCase()}`);
+            if (activeTab) activeTab.classList.add('active');
+            renderBoxes(category);
+        }
+
+        loadFolder().then(updateSettingsUI);
+        renderBoxes('Spigot');
+    </script>
+</body>
+</html>
