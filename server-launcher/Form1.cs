@@ -27,6 +27,11 @@ public partial class Form1 : Form
     private string? installedCategory;
     private int renderToken;
 
+    private readonly System.Windows.Forms.Timer statusTimer = new() { Interval = 1500 };
+    private readonly Dictionary<string, int> runningServers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (string State, DateTime Since)> pendingStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (ActionButton Button, LauncherService.InstalledServer Server)> playButtons = new(StringComparer.OrdinalIgnoreCase);
+
     public Form1()
     {
         InitializeComponent();
@@ -56,9 +61,12 @@ public partial class Form1 : Form
             SwitchCategory("Spigot");
         };
         Shown += (_, _) => surface.Focus();
+
+        statusTimer.Tick += (_, _) => RefreshRunningState();
+        statusTimer.Start();
+        FormClosed += (_, _) => statusTimer.Dispose();
     }
 
-    // Dark title bar so the window chrome matches the page (ignored on older Windows).
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
@@ -71,14 +79,12 @@ public partial class Form1 : Form
         }
         catch
         {
-            // Not supported on this version of Windows.
         }
     }
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
-    // ---------- navigation ----------
 
     private void ShowView(string view)
     {
@@ -105,7 +111,6 @@ public partial class Form1 : Form
         _ = RenderVersionsAsync(category);
     }
 
-    // ---------- versions ----------
 
     private async Task RenderVersionsAsync(string category)
     {
@@ -129,7 +134,7 @@ public partial class Form1 : Form
             surface.Relayout();
             return;
         }
-        if (token != renderToken) return; // user switched tabs meanwhile
+        if (token != renderToken) return;
 
         versionList.Items.Clear();
         if (category == "Spigot")
@@ -175,7 +180,6 @@ public partial class Form1 : Form
         return box;
     }
 
-    // ---------- downloading ----------
 
     private async Task RunDownloadAsync(ActionButton button, LauncherService.LauncherVersion item, string idleLabel)
     {
@@ -187,7 +191,6 @@ public partial class Form1 : Form
 
         try
         {
-            // Folder first, like the page does.
             if (!HasDownloadRoot() && !await AskForFirstFolderAsync()) return;
 
             SetLabel(button, "Resolving…");
@@ -253,7 +256,6 @@ public partial class Form1 : Form
         }
     }
 
-    // First-download folder prompt (the "Where should server jars go?" modal).
     private Task<bool> AskForFirstFolderAsync()
     {
         var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -285,7 +287,6 @@ public partial class Form1 : Form
             try
             {
                 var selected = dialog.SelectedPath;
-                // Don't nest if they picked an existing "Minecraft Server Jars" folder.
                 var root = Path.GetFileName(selected.TrimEnd('\\', '/')).Equals(FolderName, StringComparison.OrdinalIgnoreCase)
                     ? selected
                     : Path.Combine(selected, FolderName);
@@ -316,12 +317,12 @@ public partial class Form1 : Form
         return result.Task;
     }
 
-    // ---------- installed ----------
 
     private void RenderInstalled()
     {
         installedTabs.Tabs.Clear();
         installedList.Items.Clear();
+        playButtons.Clear();
         var root = launcher.DownloadRoot;
 
         if (string.IsNullOrWhiteSpace(root))
@@ -344,6 +345,7 @@ public partial class Form1 : Form
         try
         {
             installedServers = launcher.GetInstalledServers();
+            UpdateRunningServers();
         }
         catch (Exception ex)
         {
@@ -352,7 +354,6 @@ public partial class Form1 : Form
             return;
         }
 
-        // First visit: land on the first category that actually has something.
         installedCategory ??= Categories.FirstOrDefault(category => installedServers.Any(server => server.Category == category)) ?? "Spigot";
         BuildInstalledTabs();
         BuildInstalledList();
@@ -384,6 +385,7 @@ public partial class Form1 : Form
     private void BuildInstalledList()
     {
         installedList.Items.Clear();
+        playButtons.Clear();
         var category = installedCategory ?? "Spigot";
         var servers = installedServers.Where(server => server.Category == category).ToList();
 
@@ -427,7 +429,13 @@ public partial class Form1 : Form
             };
 
             var play = new ActionButton("Play", Glyph.Play);
-            play.OnClick = () => PlayServer(server);
+            play.OnClick = () =>
+            {
+                if (runningServers.ContainsKey(server.Directory)) _ = StopServerAsync(server);
+                else PlayServer(server);
+            };
+            playButtons[server.Directory] = (play, server);
+            ApplyPlayState(play, server);
 
             box.Actions.Add(more);
             box.Actions.Add(play);
@@ -439,15 +447,120 @@ public partial class Form1 : Form
     {
         try
         {
-            // Refresh run.bat (keeps RAM) and pre-accept the EULA so the first launch goes straight through.
             launcher.SetServerRam(server, server.RamGb);
+            launcher.PrepareRcon(server);
             LauncherService.PlayServer(server);
+            pendingStates[server.Directory] = ("starting", DateTime.UtcNow);
+            RefreshPlayButton(server);
             surface.ShowToast($"Starting {server.Title}");
         }
         catch (Exception ex)
         {
             surface.ShowToast($"Couldn't start {server.Title}: {ex.Message}");
         }
+    }
+
+
+    private async Task StopServerAsync(LauncherService.InstalledServer server)
+    {
+        pendingStates[server.Directory] = ("stopping", DateTime.UtcNow);
+        RefreshPlayButton(server);
+        surface.ShowToast($"Stopping {server.Title}");
+        if (!await launcher.RequestStopAsync(server)) ConfirmForceStop(server);
+    }
+
+    private void ConfirmForceStop(LauncherService.InstalledServer server)
+    {
+        void Abort()
+        {
+            surface.CloseModal();
+            pendingStates.Remove(server.Directory);
+            RefreshPlayButton(server);
+        }
+
+        var cancel = new ActionButton("Cancel", secondary: true);
+        var force = new ActionButton("Force stop") { Danger = true };
+        cancel.OnClick = Abort;
+        force.OnClick = () =>
+        {
+            surface.CloseModal();
+            UpdateRunningServers();
+            if (runningServers.TryGetValue(server.Directory, out var processId)) LauncherService.ForceStop(processId);
+        };
+
+        surface.ShowModal(
+            new ModalCard(440,
+                new HeadingEl($"Force stop {server.Title}?"),
+                new RichTextEl("The server didn't answer the stop request (it may still be starting). Force stopping skips saving, so recent progress can be lost."),
+                new ButtonRow(cancel, force)),
+            closeOnBackdrop: true,
+            onEscape: Abort);
+    }
+
+    private void UpdateRunningServers()
+    {
+        try
+        {
+            var current = launcher.GetRunningServers(installedServers);
+            runningServers.Clear();
+            foreach (var entry in current) runningServers[entry.Key] = entry.Value;
+        }
+        catch
+        {
+        }
+    }
+
+    private void RefreshRunningState()
+    {
+        if (currentView != "installed" || playButtons.Count == 0) return;
+
+        var wasRunning = new HashSet<string>(runningServers.Keys, StringComparer.OrdinalIgnoreCase);
+        UpdateRunningServers();
+
+        var changed = false;
+        foreach (var entry in playButtons)
+        {
+            var (button, server) = entry.Value;
+            if (wasRunning.Contains(entry.Key) && !runningServers.ContainsKey(entry.Key)) surface.ShowToast($"{server.Title} stopped");
+            changed |= ApplyPlayState(button, server);
+        }
+        if (changed) surface.Relayout();
+    }
+
+    private void RefreshPlayButton(LauncherService.InstalledServer server)
+    {
+        if (playButtons.TryGetValue(server.Directory, out var entry) && ApplyPlayState(entry.Button, server)) surface.Relayout();
+    }
+
+    private bool ApplyPlayState(ActionButton button, LauncherService.InstalledServer server)
+    {
+        var running = runningServers.ContainsKey(server.Directory);
+        var state = running ? "running" : "idle";
+        if (pendingStates.TryGetValue(server.Directory, out var pending))
+        {
+            var age = DateTime.UtcNow - pending.Since;
+            var settled = pending.State == "starting"
+                ? running || age > TimeSpan.FromSeconds(30)
+                : !running || age > TimeSpan.FromSeconds(90);
+            if (settled) pendingStates.Remove(server.Directory);
+            else state = pending.State;
+        }
+
+        var (label, glyph, danger, busy) = state switch
+        {
+            "starting" => ("Starting…", Glyph.Play, false, true),
+            "stopping" => ("Stopping…", Glyph.Stop, true, true),
+            "running" => ("Stop", Glyph.Stop, true, false),
+            _ => ("Play", Glyph.Play, false, false)
+        };
+        if (button.Label == label && button.IconGlyph == glyph && button.Danger == danger && button.Busy == busy) return false;
+
+        button.Label = label;
+        button.IconGlyph = glyph;
+        button.Danger = danger;
+        button.Busy = busy;
+        button.Disabled = busy;
+        return true;
     }
 
     private void OpenServerFolder(LauncherService.InstalledServer server)
@@ -462,7 +575,6 @@ public partial class Form1 : Form
         }
     }
 
-    // Small confirmation window (wider than tall) before deleting a server's folder.
     private void ConfirmDelete(LauncherService.InstalledServer server)
     {
         var cancel = new ActionButton("Cancel", secondary: true);
@@ -501,11 +613,13 @@ public partial class Form1 : Form
             onEscape: surface.CloseModal);
     }
 
-    // "More Options" window (RAM).
     private void OpenRamModal(LauncherService.InstalledServer server)
     {
-        var slider = new SliderEl(1, Math.Max(32, server.RamGb), server.RamGb);
+        var total = LauncherService.TotalRamGb;
+        var max = LauncherService.MaxRamGb;
+        var slider = new SliderEl(1, max, server.RamGb);
         slider.Changed = surface.Invalidate;
+        bool OverHalf() => slider.Value > total / 2.0;
 
         var cancel = new ActionButton("Cancel", secondary: true);
         var save = new ActionButton("Save");
@@ -529,9 +643,11 @@ public partial class Form1 : Form
             new ModalCard(380,
                 new HeadingEl(server.Title),
                 new RichTextEl("Server RAM"),
-                new SliderRow(slider) { MarginTop = 18, MarginBottom = 8 },
-                new RichTextEl("Saved to run.bat as -Xms and -Xmx. Leave at least 2–4 GB free for Windows.",
-                    FontSpec.Body(13, FontStyle.Regular, 1.6f), Theme.Muted),
+                new SliderRow(slider) { MarginTop = 18, MarginBottom = 8, Warn = OverHalf },
+                new RamHintEl(
+                    $"Saved to run.bat as -Xms and -Xmx. This PC has {total} GB of RAM, so up to {max} GB can be assigned.",
+                    $"That's more than half of this PC's {total} GB of RAM. Windows and other apps may start to lag, {total / 2} GB or less is safer.",
+                    OverHalf),
                 new ButtonRow(cancel, save)),
             closeOnBackdrop: true,
             onEscape: surface.CloseModal,
@@ -551,7 +667,6 @@ public partial class Form1 : Form
             });
     }
 
-    // ---------- settings ----------
 
     private void RenderSettings()
     {
@@ -615,7 +730,6 @@ public partial class Form1 : Form
         RenderSettings();
     }
 
-    // Rewrites run.bat + eula.txt for every installed server.
     private void SetUpPlay()
     {
         if (!HasDownloadRoot())
@@ -635,12 +749,10 @@ public partial class Form1 : Form
         }
     }
 
-    // ---------- helpers ----------
 
     private bool HasDownloadRoot() =>
         !string.IsNullOrWhiteSpace(launcher.DownloadRoot) && Directory.Exists(launcher.DownloadRoot);
 
-    // Short label like the page shows ("Downloads/Minecraft Server Jars").
     private string FolderLabel()
     {
         var root = launcher.DownloadRoot;

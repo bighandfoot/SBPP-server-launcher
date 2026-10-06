@@ -1,6 +1,12 @@
 namespace server_launcher;
 
+using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -20,6 +26,37 @@ internal sealed class LauncherService
     private sealed record Settings(string? DownloadRoot);
 
     public string? DownloadRoot { get; private set; }
+
+    public static int TotalRamGb { get; } = DetectTotalRamGb();
+    public static int MaxRamGb => Math.Max(1, TotalRamGb - 4);
+    private static int DefaultRam => Math.Min(DefaultRamGb, MaxRamGb);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MemoryStatusEx
+    {
+        public uint Length;
+        public uint MemoryLoad;
+        public ulong TotalPhys;
+        public ulong AvailPhys;
+        public ulong TotalPageFile;
+        public ulong AvailPageFile;
+        public ulong TotalVirtual;
+        public ulong AvailVirtual;
+        public ulong AvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx status);
+
+    private static int DetectTotalRamGb()
+    {
+        var status = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
+        var bytes = GlobalMemoryStatusEx(ref status)
+            ? status.TotalPhys
+            : (ulong)Math.Max(0L, GC.GetGCMemoryInfo().TotalAvailableMemoryBytes);
+        return Math.Max(1, (int)Math.Round(bytes / 1073741824.0));
+    }
 
     public LauncherService()
     {
@@ -138,7 +175,7 @@ internal sealed class LauncherService
                     File.Delete(file);
             }
 
-            var ram = ReadRam(destinationDirectory) ?? DefaultRamGb;
+            var ram = ReadRam(destinationDirectory) ?? DefaultRam;
             WriteRunBat(destinationDirectory, target.Filename, ram, ServerTitle(target.ServerType, target.Version!));
             File.WriteAllText(Path.Combine(destinationDirectory, "eula.txt"), "eula=true\r\n");
         }
@@ -164,7 +201,7 @@ internal sealed class LauncherService
             var category = type == "craftbukkit" ? "Bukkit" : char.ToUpperInvariant(type[0]) + type[1..];
             var info = new FileInfo(selected.Path);
             servers.Add(new InstalledServer(directory, info.Name, type, version, match.Groups[3].Success ? match.Groups[3].Value : null,
-                category, ServerTitle(type, version), info.Length, info.LastWriteTime, ReadRam(directory) ?? DefaultRamGb));
+                category, ServerTitle(type, version), info.Length, info.LastWriteTime, ReadRam(directory) ?? DefaultRam));
         }
 
         return servers.OrderBy(server => server.Version, Comparer<string>.Create(CompareVersionsDescending)).ToArray();
@@ -200,7 +237,6 @@ internal sealed class LauncherService
         Process.Start(new ProcessStartInfo { FileName = runBat, WorkingDirectory = server.Directory, UseShellExecute = true });
     }
 
-    // Deletes a server's whole folder (jar, run.bat, worlds, configs). Only folders directly inside the downloads folder.
     public void DeleteServer(InstalledServer server)
     {
         var directory = new DirectoryInfo(server.Directory);
@@ -211,10 +247,210 @@ internal sealed class LauncherService
         if (root is null || !string.Equals(root, parent, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("That folder isn't inside the downloads folder, so it wasn't deleted.");
 
-        // Directory.Delete fails on read-only files, so clear that flag first.
         foreach (var file in directory.EnumerateFiles("*", SearchOption.AllDirectories))
             if (file.IsReadOnly) file.IsReadOnly = false;
         directory.Delete(recursive: true);
+    }
+
+
+    public Dictionary<string, int> GetRunningServers(IEnumerable<InstalledServer> servers)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var list = servers.ToList();
+        if (list.Count == 0) return result;
+
+        foreach (var process in Process.GetProcessesByName("java").Concat(Process.GetProcessesByName("javaw")))
+        {
+            using (process)
+            {
+                var commandLine = TryGetCommandLine(process.Id);
+                if (string.IsNullOrEmpty(commandLine)) continue;
+                var match = list.FirstOrDefault(server => commandLine.Contains(Path.Combine(server.Directory, server.JarName), StringComparison.OrdinalIgnoreCase))
+                    ?? list.FirstOrDefault(server => commandLine.Contains(server.JarName, StringComparison.OrdinalIgnoreCase));
+                if (match is not null) result[match.Directory] = process.Id;
+            }
+        }
+        return result;
+    }
+
+    public void PrepareRcon(InstalledServer server)
+    {
+        var path = Path.Combine(server.Directory, "server.properties");
+        var lines = File.Exists(path) ? File.ReadAllLines(path).ToList() : new List<string>();
+        var properties = ReadProperties(server.Directory);
+
+        var password = properties.GetValueOrDefault("rcon.password");
+        if (string.IsNullOrWhiteSpace(password)) password = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        var port = int.TryParse(properties.GetValueOrDefault("rcon.port"), out var existing) && IsPortFree(existing) ? existing : FindFreePort();
+
+        SetProperty(lines, "enable-rcon", "true");
+        SetProperty(lines, "rcon.port", port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        SetProperty(lines, "rcon.password", password);
+        SetProperty(lines, "broadcast-rcon-to-ops", "false");
+        File.WriteAllLines(path, lines);
+    }
+
+    public async Task<bool> RequestStopAsync(InstalledServer server)
+    {
+        var properties = ReadProperties(server.Directory);
+        if (!string.Equals(properties.GetValueOrDefault("enable-rcon"), "true", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!int.TryParse(properties.GetValueOrDefault("rcon.port"), out var port)) return false;
+        var password = properties.GetValueOrDefault("rcon.password");
+        if (string.IsNullOrEmpty(password)) return false;
+
+        try
+        {
+            return await SendRconAsync(port, password, "stop");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static void ForceStop(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            process.Kill();
+        }
+        catch (ArgumentException)
+        {
+        }
+    }
+
+    private static async Task<bool> SendRconAsync(int port, string password, string command)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, port, timeout.Token);
+        await using var stream = client.GetStream();
+
+        await WriteRconPacketAsync(stream, 1, 3, password, timeout.Token);
+        var (authId, _) = await ReadRconPacketAsync(stream, timeout.Token);
+        if (authId == -1) return false;
+
+        await WriteRconPacketAsync(stream, 2, 2, command, timeout.Token);
+        try
+        {
+            await ReadRconPacketAsync(stream, timeout.Token);
+        }
+        catch
+        {
+        }
+        return true;
+    }
+
+    private static async Task WriteRconPacketAsync(Stream stream, int id, int type, string body, CancellationToken token)
+    {
+        var payload = Encoding.UTF8.GetBytes(body);
+        var packet = new byte[14 + payload.Length];
+        BinaryPrimitives.WriteInt32LittleEndian(packet.AsSpan(0), 10 + payload.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(packet.AsSpan(4), id);
+        BinaryPrimitives.WriteInt32LittleEndian(packet.AsSpan(8), type);
+        payload.CopyTo(packet, 12);
+        await stream.WriteAsync(packet, token);
+    }
+
+    private static async Task<(int Id, int Type)> ReadRconPacketAsync(Stream stream, CancellationToken token)
+    {
+        var header = new byte[4];
+        await stream.ReadExactlyAsync(header, token);
+        var length = BinaryPrimitives.ReadInt32LittleEndian(header);
+        if (length < 10 || length > 1 << 20) throw new InvalidDataException("Bad RCON packet.");
+        var rest = new byte[length];
+        await stream.ReadExactlyAsync(rest, token);
+        return (BinaryPrimitives.ReadInt32LittleEndian(rest), BinaryPrimitives.ReadInt32LittleEndian(rest.AsSpan(4)));
+    }
+
+    private static Dictionary<string, string> ReadProperties(string directory)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var path = Path.Combine(directory, "server.properties");
+        if (!File.Exists(path)) return result;
+        foreach (var line in File.ReadAllLines(path))
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.Length == 0 || trimmed[0] is '#' or '!') continue;
+            var index = trimmed.IndexOf('=');
+            if (index <= 0) continue;
+            result[trimmed[..index].Trim()] = trimmed[(index + 1)..].Trim();
+        }
+        return result;
+    }
+
+    private static void SetProperty(List<string> lines, string key, string value)
+    {
+        var index = lines.FindIndex(line =>
+        {
+            var trimmed = line.TrimStart();
+            return trimmed.StartsWith(key, StringComparison.OrdinalIgnoreCase) && trimmed[key.Length..].TrimStart().StartsWith('=');
+        });
+        var entry = $"{key}={value}";
+        if (index >= 0) lines[index] = entry;
+        else lines.Add(entry);
+    }
+
+    private static bool IsPortFree(int port)
+    {
+        try
+        {
+            var listener = new TcpListener(IPAddress.Any, port);
+            listener.Start();
+            listener.Stop();
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
+    private static int FindFreePort()
+    {
+        for (var port = 25575; port < 25700; port++)
+            if (IsPortFree(port)) return port;
+        return 25575;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(int access, bool inheritHandle, int processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(IntPtr processHandle, int informationClass, IntPtr information, int informationLength, out int returnLength);
+
+    private static string? TryGetCommandLine(int processId)
+    {
+        const int ProcessQueryLimitedInformation = 0x1000;
+        const int ProcessCommandLineInformation = 60;
+
+        var handle = OpenProcess(ProcessQueryLimitedInformation, false, processId);
+        if (handle == IntPtr.Zero) return null;
+        try
+        {
+            NtQueryInformationProcess(handle, ProcessCommandLineInformation, IntPtr.Zero, 0, out var length);
+            if (length <= 0) return null;
+            var buffer = Marshal.AllocHGlobal(length);
+            try
+            {
+                if (NtQueryInformationProcess(handle, ProcessCommandLineInformation, buffer, length, out _) != 0) return null;
+                var byteLength = (ushort)Marshal.ReadInt16(buffer);
+                var text = Marshal.ReadIntPtr(buffer, IntPtr.Size);
+                return text == IntPtr.Zero ? null : Marshal.PtrToStringUni(text, byteLength / 2);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        finally
+        {
+            CloseHandle(handle);
+        }
     }
 
     public static void OpenServerFolder(InstalledServer server)
@@ -364,8 +600,8 @@ internal sealed class LauncherService
             "\"%JAVA%\" -version >nul 2>nul || (echo Java was not found. Install 64-bit Java 21 from https://adoptium.net and try again. & pause & exit /b 1)",
             "\"%JAVA%\" -version 2>&1 | findstr /c:\"64-Bit\" >nul || (echo The Java on this PC is 32-bit and cannot use more than about 1 GB of RAM. Install 64-bit Java 21 from https://adoptium.net and try again. & pause & exit /b 1)",
             ">eula.txt echo eula=true",
-            $"\"%JAVA%\" -Xms{ramGb}G -Xmx{ramGb}G -jar \"{jarName}\" nogui",
-            "pause",
+            $"\"%JAVA%\" -Xms{ramGb}G -Xmx{ramGb}G -jar \"%~dp0{jarName}\" nogui",
+            "if errorlevel 1 pause",
             string.Empty
         ]);
         File.WriteAllText(Path.Combine(directory, "run.bat"), content);
@@ -373,8 +609,6 @@ internal sealed class LauncherService
 
     private static string? resolvedJava;
 
-    // Finds the newest 64-bit java.exe (JAVA_HOME, common install folders, PATH).
-    // Falls back to plain "java"; run.bat then explains if that one is missing or 32-bit.
     private static string ResolveJava()
     {
         if (resolvedJava is not null) return resolvedJava;
@@ -396,14 +630,13 @@ internal sealed class LauncherService
             }
             catch
             {
-                // Unreadable folder; skip it.
             }
         }
 
         foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
             try { candidates.Add(Path.Combine(dir.Trim().Trim('"'), "java.exe")); }
-            catch { /* invalid PATH entry */ }
+            catch { }
         }
 
         string? best = null;
@@ -417,7 +650,7 @@ internal sealed class LauncherService
             bestMajor = info.Major;
         }
 
-        if (best is not null) resolvedJava = best; // only cache a real hit, so installing Java later works without a restart
+        if (best is not null) resolvedJava = best;
         return best ?? "java";
     }
 
@@ -437,7 +670,7 @@ internal sealed class LauncherService
             var output = process.StandardOutput.ReadToEndAsync();
             if (!process.WaitForExit(5000))
             {
-                try { process.Kill(); } catch { /* already gone */ }
+                try { process.Kill(); } catch { }
                 return null;
             }
 

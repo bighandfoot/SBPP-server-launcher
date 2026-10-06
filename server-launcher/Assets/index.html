@@ -335,7 +335,6 @@
             outline-offset: 2px;
         }
 
-        /* Settings page */
         .settings-content {
             display: none;
             flex-direction: column;
@@ -402,7 +401,18 @@
             cursor: not-allowed;
         }
 
-        /* First-download folder modal */
+        .download-action-btn.busy:disabled {
+            cursor: wait;
+        }
+
+        .download-action-btn.danger-btn {
+            background-color: #e53935;
+        }
+
+        .download-action-btn.danger-btn:hover {
+            background-color: #c62828;
+        }
+
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -450,7 +460,6 @@
             margin-top: 20px;
         }
 
-        /* Installed: 3-dot button, menu, RAM window */
         .icon-btn {
             background-color: rgb(35, 35, 35);
             color: #999999;
@@ -546,7 +555,6 @@
             font-size: 13px;
         }
 
-        /* Toast notification for download feedback */
         .toast-notification {
             position: fixed;
             bottom: 20px;
@@ -610,7 +618,6 @@
                 <button class="tab-btn" id="tab-purpur" onclick="switchCategory('Purpur')">Purpur</button>
             </div>
             <div class="boxes-container" id="boxesContainer">
-                <!-- Version boxes rendered dynamically via script -->
             </div>
         </div>
 
@@ -618,7 +625,6 @@
             <h1 class="title-text">Installed</h1>
             <div class="category-tabs" id="installedTabs"></div>
             <div class="boxes-container" id="installedContainer">
-                <!-- Installed jars rendered dynamically via script -->
             </div>
         </div>
 
@@ -707,11 +713,15 @@
             </svg>
         `;
 
-        // Official BuildTools (the only thing SpigotMC itself distributes)
+        const stopSvg = `
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M12 2a10 10 0 1 1 0 20a10 10 0 1 1 0-20zM12 3.75a8.25 8.25 0 1 0 0 16.5a8.25 8.25 0 1 0 0-16.5zM8.5 8.5h7v7h-7z"/>
+            </svg>
+        `;
+
         const BUILDTOOLS_URL = 'https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar';
 
-        // ---------- helpers ----------
-        const isRelease = v => /^\d+(\.\d+)+$/.test(v); // drops snapshots, -pre, -rc
+        const isRelease = v => /^\d+(\.\d+)+$/.test(v);
         function compareVersionsDesc(a, b) {
             const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
             for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -727,8 +737,6 @@
             return res.json();
         }
 
-        // ---------- sources ----------
-        // Spigot: SpigotMC publishes no jars, so prebuilt ones come from MCJars (mcjars.app).
         let spigotIndexPromise = null;
         function getSpigotIndex() {
             if (!spigotIndexPromise) {
@@ -765,10 +773,9 @@
             };
         }
 
-        // Bukkit (CraftBukkit): no legit prebuilt source exists anywhere; it's built locally with BuildTools.
         async function loadBukkit() {
             let index = [];
-            try { index = await getSpigotIndex(); } catch { /* still usable with --rev latest */ }
+            try { index = await getSpigotIndex(); } catch { }
             const rows = index.length ? index : [['latest', {}]];
             return {
                 notice: {
@@ -786,7 +793,6 @@
             };
         }
 
-        // Paper: official Fill v3 API (the old api.papermc.io v2 was shut down July 2026).
         async function loadPaper() {
             const data = await getJson('https://fill.papermc.io/v3/projects/paper');
             const versions = Object.values(data.versions || {}).flat()
@@ -814,7 +820,6 @@
             };
         }
 
-        // Purpur: official API, /latest/download serves the newest build directly.
         async function loadPurpur() {
             const data = await getJson('https://api.purpurmc.org/v2/purpur');
             const versions = (data.versions || []).filter(isRelease).sort(compareVersionsDesc);
@@ -834,7 +839,6 @@
         const LOADERS = { Spigot: loadSpigot, Bukkit: loadBukkit, Paper: loadPaper, Purpur: loadPurpur };
         const cache = new Map();
 
-        // ---------- downloading ----------
         function clickLink(href, filename, newTab) {
             const a = document.createElement('a');
             a.href = href;
@@ -845,11 +849,9 @@
             a.remove();
         }
 
-        // ---------- downloads folder (File System Access API, Chrome/Edge/Opera) ----------
         const FOLDER_NAME = 'Minecraft Server Jars';
         const fsSupported = typeof window.showDirectoryPicker === 'function';
 
-        // Tiny IndexedDB key-value store; directory handles can only be persisted here.
         const kv = (() => {
             let dbPromise;
             const db = () => dbPromise ||= new Promise((resolve, reject) => {
@@ -873,7 +875,7 @@
             };
         })();
 
-        let folder = null; // { handle, label }
+        let folder = null;
 
         async function loadFolder() {
             if (!fsSupported) return;
@@ -893,7 +895,6 @@
             return (await handle.requestPermission(opts)) === 'granted';
         }
 
-        // Resolves to true if the user picked a location, false if they cancelled.
         function askForFirstFolder() {
             const modal = document.getElementById('folderModal');
             const choose = document.getElementById('folderModalChoose');
@@ -910,7 +911,6 @@
                 choose.onclick = async () => {
                     try {
                         const parent = await window.showDirectoryPicker({ id: 'mc-jars', mode: 'readwrite', startIn: 'downloads' });
-                        // Don't nest if they picked an existing "Minecraft Server Jars" folder
                         const handle = parent.name === FOLDER_NAME
                             ? parent
                             : await parent.getDirectoryHandle(FOLDER_NAME, { create: true });
@@ -926,7 +926,6 @@
             });
         }
 
-        // Returns a writable directory handle, null for "use the browser's default", or undefined if cancelled.
         async function getTargetFolder() {
             if (!fsSupported) return null;
             if (!folder && !(await askForFirstFolder())) return undefined;
@@ -968,15 +967,11 @@
             reset.disabled = !folder;
         }
 
-        // Streams the jar so the button shows progress. Writes straight into the chosen
-        // folder when there is one; otherwise falls back to a normal browser download.
-        // Returns where the file ended up: 'folder' or 'browser'.
         async function downloadFile(url, filename, dir, onProgress) {
             let res;
             try {
                 res = await fetch(url);
             } catch {
-                // Host blocks cross-origin fetches; only the browser itself can download it.
                 clickLink(url, filename, true);
                 return 'browser';
             }
@@ -1010,7 +1005,7 @@
                     }
                     await writable.close();
                 } catch (err) {
-                    await writable.abort().catch(() => {}); // discard the partial file
+                    await writable.abort().catch(() => {});
                     throw err;
                 }
                 return 'folder';
@@ -1044,12 +1039,10 @@
             btn.disabled = true;
             btn.classList.add('downloading');
             try {
-                // Folder first, while the click still counts as a user gesture (needed for permission prompts)
                 const dir = await getTargetFolder();
-                if (dir === undefined) return; // user cancelled the folder prompt
+                if (dir === undefined) return;
                 setLabel(btn, 'Resolving…');
                 const target = await getTarget();
-                // Servers get their own folder (worlds, configs and run.bat live next to the jar)
                 const saveDir = dir && target.server ? await getServerDir(dir, target.server) : dir;
                 showToast(target.note || `Downloading ${target.filename}`);
                 setLabel(btn, '0%');
@@ -1088,7 +1081,6 @@
             showToast('Command copied');
         }
 
-        // ---------- rendering ----------
         let renderToken = 0;
 
         async function renderBoxes(category) {
@@ -1113,7 +1105,7 @@
                 container.appendChild(box);
                 return;
             }
-            if (token !== renderToken) return; // user switched tabs meanwhile
+            if (token !== renderToken) return;
 
             container.innerHTML = '';
 
@@ -1173,8 +1165,6 @@
             });
         }
 
-        // ---------- installed servers ----------
-        // Layout on disk:  <downloads folder>/<Server Name>/<server jar> + run.bat
         const SERVER_JAR = /^(spigot|craftbukkit|paper|purpur)-(\d+(?:\.\d+)+)(?:-(\d+))?\.jar$/i;
         const PRETTY = { spigot: 'Spigot', craftbukkit: 'CraftBukkit', paper: 'Paper', purpur: 'Purpur' };
         const CATEGORY_OF = { spigot: 'Spigot', craftbukkit: 'Bukkit', paper: 'Paper', purpur: 'Purpur' };
@@ -1217,10 +1207,11 @@
                 '@echo off',
                 `title ${title}`,
                 'cd /d "%~dp0"',
-                'where java >nul 2>nul || (echo Java was not found. Install it from https://adoptium.net and try again. & pause & exit /b 1)',
+                'java -version >nul 2>nul || (echo Java was not found. Install 64-bit Java 21 from https://adoptium.net and try again. & pause & exit /b 1)',
+                'java -version 2>&1 | findstr /c:"64-Bit" >nul || (echo The Java on this PC is 32-bit and cannot use more than about 1 GB of RAM. Install 64-bit Java 21 from https://adoptium.net and try again. & pause & exit /b 1)',
                 '>eula.txt echo eula=true',
-                `java -Xms${ramGb}G -Xmx${ramGb}G -jar "${jarName}" nogui`,
-                'pause',
+                `java -Xms${ramGb}G -Xmx${ramGb}G -jar "%~dp0${jarName}" nogui`,
+                'if errorlevel 1 pause',
                 ''
             ].join('\r\n');
         }
@@ -1231,8 +1222,6 @@
             await writable.close();
         }
 
-        // After a download: drop older builds of the same server and (re)write run.bat,
-        // keeping the RAM amount if the user already changed it.
         async function finalizeServer(dir, jarName, server) {
             const ram = (await readRunBatRam(dir)) ?? DEFAULT_RAM_GB;
             const stale = [];
@@ -1303,7 +1292,6 @@
                 return installedMessage(container, 'Nothing installed yet. Download a version and it will show up here.', go);
             }
 
-            // Reading the folder may need permission again in a new session; that needs a click.
             if (await folder.handle.queryPermission({ mode: 'readwrite' }) !== 'granted') {
                 const allow = makeButton('Allow access', null, '');
                 allow.onclick = async () => {
@@ -1335,7 +1323,6 @@
             servers.sort((a, b) => compareVersionsDesc(a.version, b.version));
             installedServers = servers;
 
-            // First visit: land on the first category that actually has something
             if (!installedCategory) {
                 installedCategory = CATEGORIES.find(c => servers.some(s => s.category === c)) || 'Spigot';
             }
@@ -1361,6 +1348,8 @@
         }
 
         function renderInstalledList() {
+            playButtons.clear();
+            setTimeout(pollServerStates, 50);
             const container = document.getElementById('installedContainer');
             const list = installedServers.filter(s => s.category === installedCategory);
 
@@ -1409,7 +1398,9 @@
                 };
 
                 const play = makeButton('Play', null, playSvg);
-                play.onclick = () => playVersion(server);
+                play.onclick = () => (effectiveState(server.title) === 'running' ? stopVersion(server) : playVersion(server));
+                playButtons.set(server.title, { btn: play, server });
+                applyPlayState(play, server.title);
 
                 actions.append(more, play);
                 box.append(infoDiv, actions);
@@ -1417,7 +1408,6 @@
             });
         }
 
-        // ---------- 3-dot menu ----------
         const contextMenu = document.getElementById('contextMenu');
         let menuOwner = null;
 
@@ -1456,7 +1446,6 @@
         document.querySelector('.main-content').addEventListener('scroll', closeMenu);
         window.addEventListener('resize', closeMenu);
 
-        // Browsers can't launch Explorer; the closest thing is a native file dialog opened inside the folder.
         async function openServerFolder(server) {
             try {
                 await window.showOpenFilePicker({ startIn: server.dir, multiple: true });
@@ -1465,7 +1454,6 @@
             }
         }
 
-        // ---------- More Options window (RAM) ----------
         const ramModal = document.getElementById('ramModal');
         const ramSlider = document.getElementById('ramSlider');
         const ramValue = document.getElementById('ramValue');
@@ -1511,11 +1499,6 @@
             if (closePlaySetup) closePlaySetup();
         });
 
-        // ---------- Play ----------
-        // The page can't start processes, so Play hands off to a tiny helper registered as the
-        // mcserver: link type. setup-play-button.bat registers it once (current user only, no admin).
-        // launch.ps1 only accepts names of server folders sitting next to it, so other sites
-        // can't use the link type to run anything else.
 
         async function writeTextFile(dir, name, text) {
             const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
@@ -1525,22 +1508,159 @@
 
         const writeEula = dir => writeTextFile(dir, 'eula.txt', 'eula=true\r\n');
 
-        const LAUNCH_PS1 = [
-            'param([string]$Uri)',
-            "$ErrorActionPreference = 'Stop'",
-            'function Fail($msg) {',
-            "    (New-Object -ComObject WScript.Shell).Popup($msg, 0, 'Minecraft Server', 16) | Out-Null",
-            '    exit 1',
-            '}',
-            "$name = [uri]::UnescapeDataString(($Uri -replace '^mcserver:(//)?', '')).Trim('/', ' ')",
-            "if ($name -notmatch '^(Spigot|CraftBukkit|Paper|Purpur) \\d+(\\.\\d+)+$') { Fail \"Not a server name: $name\" }",
-            '$dir = Join-Path $PSScriptRoot $name',
-            "$bat = Join-Path $dir 'run.bat'",
-            'if (-not (Test-Path -LiteralPath $bat -PathType Leaf)) { Fail "run.bat not found in $dir" }',
-            "Set-Content -LiteralPath (Join-Path $dir 'eula.txt') -Value 'eula=true' -Encoding ASCII",
-            'Start-Process -FilePath $bat -WorkingDirectory $dir',
-            ''
-        ].join('\r\n');
+        const LAUNCH_PS1 = String.raw`
+param([string]$Uri)
+$ErrorActionPreference = 'Stop'
+
+function Fail($msg) {
+    (New-Object -ComObject WScript.Shell).Popup($msg, 0, 'Minecraft Server', 16) | Out-Null
+    exit 1
+}
+
+function Read-Props($Dir) {
+    $props = @{}
+    $file = Join-Path $Dir 'server.properties'
+    if (Test-Path -LiteralPath $file) {
+        foreach ($line in Get-Content -LiteralPath $file) {
+            if ($line -match '^\s*([^#!=\s][^=]*?)\s*=(.*)$') { $props[$matches[1]] = $matches[2].Trim() }
+        }
+    }
+    return $props
+}
+
+function Test-PortFree([int]$Port) {
+    try {
+        $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $Port)
+        $listener.Start()
+        $listener.Stop()
+        return $true
+    } catch { return $false }
+}
+
+function Enable-Rcon($Dir) {
+    $file = Join-Path $Dir 'server.properties'
+    $lines = @()
+    if (Test-Path -LiteralPath $file) { $lines = @(Get-Content -LiteralPath $file) }
+    $props = Read-Props $Dir
+    $password = $props['rcon.password']
+    if (-not $password) { $password = -join (1..32 | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) }) }
+    $port = 0
+    if ($props['rcon.port'] -match '^\d+$' -and (Test-PortFree ([int]$props['rcon.port']))) { $port = [int]$props['rcon.port'] }
+    if (-not $port) { for ($p = 25575; $p -lt 25700; $p++) { if (Test-PortFree $p) { $port = $p; break } } }
+    $values = [ordered]@{ 'enable-rcon' = 'true'; 'rcon.port' = [string]$port; 'rcon.password' = $password; 'broadcast-rcon-to-ops' = 'false' }
+    foreach ($key in $values.Keys) {
+        $found = $false
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match ('^\s*' + [regex]::Escape($key) + '\s*=')) { $lines[$i] = $key + '=' + $values[$key]; $found = $true }
+        }
+        if (-not $found) { $lines += ($key + '=' + $values[$key]) }
+    }
+    Set-Content -LiteralPath $file -Value $lines -Encoding ASCII
+}
+
+function Find-ServerJava($Dir) {
+    Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
+        Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($Dir, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+        Select-Object -First 1
+}
+
+function Send-Rcon([int]$Port, [string]$Password, [string]$Command) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        if (-not $client.ConnectAsync('127.0.0.1', $Port).Wait(2000)) { return $false }
+        $stream = $client.GetStream()
+        $stream.ReadTimeout = 5000
+        $reader = New-Object System.IO.BinaryReader($stream)
+        foreach ($packet in @(@(1, 3, $Password), @(2, 2, $Command))) {
+            $body = [System.Text.Encoding]::UTF8.GetBytes([string]$packet[2])
+            $buffer = New-Object System.IO.MemoryStream
+            $writer = New-Object System.IO.BinaryWriter($buffer)
+            $writer.Write([int](10 + $body.Length))
+            $writer.Write([int]$packet[0])
+            $writer.Write([int]$packet[1])
+            $writer.Write($body)
+            $writer.Write([byte]0)
+            $writer.Write([byte]0)
+            $data = $buffer.ToArray()
+            $stream.Write($data, 0, $data.Length)
+            try {
+                $length = $reader.ReadInt32()
+                $id = $reader.ReadInt32()
+                $null = $reader.ReadBytes($length - 4)
+            } catch {
+                return ($packet[0] -ne 1)
+            }
+            if ($packet[0] -eq 1 -and $id -eq -1) { return $false }
+        }
+        return $true
+    } catch { return $false } finally { $client.Close() }
+}
+
+$raw = [uri]::UnescapeDataString(($Uri -replace '^mcserver:(//)?', '')).Trim('/', ' ')
+$action = 'play'
+if ($raw -match '^(play|stop)/(.+)$') { $action = $matches[1]; $raw = $matches[2] }
+$name = $raw.Trim('/', ' ')
+if ($name -notmatch '^(Spigot|CraftBukkit|Paper|Purpur) \d+(\.\d+)+$') { Fail "Not a server name: $name" }
+$dir = Join-Path $PSScriptRoot $name
+$bat = Join-Path $dir 'run.bat'
+$statusFile = Join-Path $dir '.mcserver-status.json'
+$stopFile = Join-Path $dir '.mcserver-stopping'
+if (-not (Test-Path -LiteralPath $bat -PathType Leaf)) { Fail "run.bat not found in $dir" }
+
+if ($action -eq 'stop') {
+    $java = Find-ServerJava $dir
+    if (-not $java) {
+        Remove-Item -LiteralPath $statusFile, $stopFile -ErrorAction SilentlyContinue
+        exit 0
+    }
+    Set-Content -LiteralPath $stopFile -Value ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) -Encoding ASCII
+    $props = Read-Props $dir
+    $sent = $false
+    if ($props['enable-rcon'] -eq 'true' -and $props['rcon.port'] -match '^\d+$' -and $props['rcon.password']) {
+        $sent = Send-Rcon ([int]$props['rcon.port']) $props['rcon.password'] 'stop'
+    }
+    if (-not $sent) {
+        $nl = [Environment]::NewLine
+        $message = "Couldn't ask $name to stop (it may still be starting)." + $nl + $nl + 'Force stop it? Anything not saved yet will be lost.'
+        $answer = (New-Object -ComObject WScript.Shell).Popup($message, 0, 'Minecraft Server', 52)
+        if ($answer -eq 6) { Stop-Process -Id $java.ProcessId -Force -ErrorAction SilentlyContinue }
+        else { Remove-Item -LiteralPath $stopFile -ErrorAction SilentlyContinue }
+    }
+    exit 0
+}
+
+if (Find-ServerJava $dir) { exit 0 }
+Set-Content -LiteralPath (Join-Path $dir 'eula.txt') -Value 'eula=true' -Encoding ASCII
+Enable-Rcon $dir
+Remove-Item -LiteralPath $stopFile -ErrorAction SilentlyContinue
+$cmd = Start-Process -FilePath $bat -WorkingDirectory $dir -PassThru
+
+function Write-Status([string]$State, [int]$ProcessId) {
+    $json = '{"state":"' + $State + '","pid":' + $ProcessId + ',"heartbeat":' + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + '}'
+    try { [System.IO.File]::WriteAllText($statusFile, $json) } catch { }
+}
+
+$deadline = (Get-Date).AddSeconds(45)
+$java = $null
+try {
+    while ($true) {
+        if (-not $java) {
+            $java = Find-ServerJava $dir
+            if (-not $java) {
+                if ($cmd.HasExited -or (Get-Date) -gt $deadline) { break }
+                Write-Status 'starting' 0
+                Start-Sleep -Milliseconds 700
+                continue
+            }
+        }
+        if (-not (Get-Process -Id $java.ProcessId -ErrorAction SilentlyContinue)) { break }
+        Write-Status 'running' $java.ProcessId
+        Start-Sleep -Seconds 2
+    }
+} finally {
+    Remove-Item -LiteralPath $statusFile, $stopFile -ErrorAction SilentlyContinue
+}
+`.trimStart().replace(/\n/g, '\r\n');
 
         const SETUP_BAT = [
             '@echo off',
@@ -1559,7 +1679,6 @@
             await writeTextFile(folder.handle, 'setup-play-button.bat', SETUP_BAT);
         }
 
-        // Resolves true when the user says the setup is done, false on cancel.
         function showPlaySetup() {
             const modal = document.getElementById('playSetupModal');
             const done = document.getElementById('playSetupDone');
@@ -1581,7 +1700,7 @@
                 open.onclick = async () => {
                     try {
                         await window.showOpenFilePicker({ startIn: folder.handle });
-                    } catch { /* dialog closed */ }
+                    } catch { }
                 };
             });
         }
@@ -1599,22 +1718,99 @@
 
         async function playVersion(server) {
             try {
-                // Refresh run.bat (keeps RAM, adds the EULA + Java checks to older files) and pre-accept the EULA,
-                // so the first launch goes straight through instead of stopping to ask.
                 await writeRunBat(server.dir, server.jarName, server.ram, server.title);
                 await writeEula(server.dir);
+                await writeLauncherFiles();
 
                 if (!(await kv.get('playReady'))) {
-                    await writeLauncherFiles();
                     if (!(await showPlaySetup())) return;
                     await kv.set('playReady', true);
                 }
 
-                window.location.href = `mcserver:${encodeURIComponent(server.title)}`;
+                pendingStates.set(server.title, { state: 'starting', since: Date.now() });
+                refreshPlayButtons();
+                window.location.href = `mcserver:play/${encodeURIComponent(server.title)}`;
                 showToast(`Starting ${server.title}`);
             } catch (err) {
                 showToast(`Couldn't start ${server.title}: ${err.message}`);
             }
+        }
+
+        const STATUS_FILE = '.mcserver-status.json';
+        const STOP_FILE = '.mcserver-stopping';
+        const actualStates = new Map();
+        const pendingStates = new Map();
+        const playButtons = new Map();
+        let polling = false;
+
+        async function readServerState(server) {
+            try {
+                const file = await (await server.dir.getFileHandle(STATUS_FILE)).getFile();
+                const status = JSON.parse(await file.text());
+                if (Date.now() - status.heartbeat > 7000) return null;
+                if (status.state === 'starting') return 'starting';
+                try {
+                    await server.dir.getFileHandle(STOP_FILE);
+                    return 'stopping';
+                } catch {
+                    return 'running';
+                }
+            } catch {
+                return null;
+            }
+        }
+
+        function effectiveState(title) {
+            const actual = actualStates.get(title) ?? null;
+            const pending = pendingStates.get(title);
+            if (pending) {
+                const age = Date.now() - pending.since;
+                const settled = pending.state === 'starting'
+                    ? actual === 'running' || actual === 'starting' || age > 30000
+                    : actual === null || actual === 'stopping' || age > 15000;
+                if (!settled) return pending.state;
+                pendingStates.delete(title);
+            }
+            return actual;
+        }
+
+        function applyPlayState(btn, title) {
+            const state = effectiveState(title) || 'idle';
+            if (btn.dataset.state === state) return;
+            btn.dataset.state = state;
+            const live = state === 'running' || state === 'stopping';
+            btn.innerHTML = `${live ? stopSvg : playSvg} <span></span>`;
+            setLabel(btn, { starting: 'Starting…', running: 'Stop', stopping: 'Stopping…' }[state] || 'Play');
+            btn.classList.toggle('danger-btn', live);
+            btn.disabled = state === 'starting' || state === 'stopping';
+            btn.classList.toggle('busy', btn.disabled);
+        }
+
+        function refreshPlayButtons() {
+            for (const [title, { btn }] of playButtons) applyPlayState(btn, title);
+        }
+
+        async function pollServerStates() {
+            if (polling || currentView !== 'installed' || !playButtons.size) return;
+            polling = true;
+            try {
+                for (const [title, { server }] of playButtons) {
+                    const previous = actualStates.get(title) ?? null;
+                    const state = await readServerState(server);
+                    actualStates.set(title, state);
+                    if (state === null && (previous === 'running' || previous === 'stopping')) showToast(`${title} stopped`);
+                }
+                refreshPlayButtons();
+            } finally {
+                polling = false;
+            }
+        }
+
+        function stopVersion(server) {
+            pendingStates.set(server.title, { state: 'stopping', since: Date.now() });
+            refreshPlayButtons();
+            window.location.href = `mcserver:stop/${encodeURIComponent(server.title)}`;
+            showToast(`Stopping ${server.title}`);
         }
 
         let toastTimer = null;
@@ -1648,6 +1844,7 @@
 
         loadFolder().then(updateSettingsUI);
         renderBoxes('Spigot');
+        setInterval(pollServerStates, 2000);
     </script>
 </body>
 </html>

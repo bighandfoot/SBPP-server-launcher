@@ -10,7 +10,6 @@ using System.Windows.Forms;
 
 namespace server_launcher;
 
-// Every value here is copied from index.html's stylesheet.
 internal static class Theme
 {
     public static readonly Color Page = Color.FromArgb(15, 15, 15);
@@ -44,6 +43,7 @@ internal static class Theme
     public static readonly Color Danger = Color.FromArgb(0xe5, 0x39, 0x35);
     public static readonly Color DangerHover = Color.FromArgb(0xc6, 0x28, 0x28);
     public static readonly Color DangerText = Color.FromArgb(0xff, 0x6b, 0x6b);
+    public static readonly Color Warning = Color.FromArgb(0xff, 0xb7, 0x4d);
 
     public static Color Mix(Color from, Color to, float t)
     {
@@ -57,7 +57,6 @@ internal static class Theme
     }
 }
 
-// Font sizes are CSS pixels; LineHeight 1.33 is Chrome's "normal" for Segoe UI.
 internal readonly record struct FontSpec(string Family, float Px, FontStyle Style, float LineHeight)
 {
     private static readonly bool HasBlack = DetectBlack();
@@ -67,7 +66,6 @@ internal readonly record struct FontSpec(string Family, float Px, FontStyle Styl
     public static FontSpec Body(float px, FontStyle style = FontStyle.Regular, float lineHeight = 1.33f) =>
         new FontSpec("Segoe UI", px, style, lineHeight);
 
-    // font-weight: 900 -> Segoe UI Black
     public static FontSpec Heavy(float px) => HasBlack
         ? new FontSpec("Segoe UI Black", px, FontStyle.Regular, 1.33f)
         : new FontSpec("Segoe UI", px, FontStyle.Bold, 1.33f);
@@ -88,7 +86,6 @@ internal readonly record struct FontSpec(string Family, float Px, FontStyle Styl
     }
 }
 
-// Layout happens in CSS pixels; Ui converts to device pixels for the current DPI.
 internal sealed class Ui : IDisposable
 {
     public const TextFormatFlags BaseFlags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
@@ -206,7 +203,6 @@ internal sealed class Painter
 
     private float S => Ui.Scale;
 
-    // CSS opacity over a known solid backdrop (fade-in animation, disabled buttons).
     public void PushOpacity(float alpha, Color backdrop) => layers.Add((alpha, backdrop));
     public void PopOpacity() => layers.RemoveAt(layers.Count - 1);
 
@@ -261,7 +257,6 @@ internal sealed class Painter
         G.FillPath(brush, path);
     }
 
-    // box-shadow approximation: stacked translucent layers spanning roughly +-0.8 * blur.
     public void Shadow(RectangleF r, float radius, float offsetY, float blur, float alpha)
     {
         alpha *= Opacity;
@@ -332,9 +327,8 @@ internal sealed class Painter
     }
 }
 
-internal enum Glyph { None, Versions, Installed, Settings, Download, Play, Kebab }
+internal enum Glyph { None, Versions, Installed, Settings, Download, Play, Stop, Kebab }
 
-// The exact SVG paths from index.html.
 internal static class Icons
 {
     private static readonly Dictionary<Glyph, (GraphicsPath Path, bool Stroke)> Cache = new();
@@ -347,6 +341,7 @@ internal static class Icons
             {
                 Glyph.Versions => (Svg.Parse("M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"), false),
                 Glyph.Installed or Glyph.Play => (Svg.Parse("M8 5v14l11-7z"), false),
+                Glyph.Stop => (Svg.Parse("M12 2a10 10 0 1 1 0 20a10 10 0 1 1 0-20zM12 3.75a8.25 8.25 0 1 0 0 16.5a8.25 8.25 0 1 0 0-16.5zM8.5 8.5h7v7h-7z"), false),
                 Glyph.Settings => (Svg.Parse("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"), false),
                 Glyph.Kebab => (Svg.Parse("M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"), false),
                 Glyph.Download => (Svg.Parse("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10L12 15L17 10M12 15V3"), true),
@@ -358,7 +353,6 @@ internal static class Icons
     }
 }
 
-// Minimal SVG path-data parser (M L H V C S A Z, absolute and relative).
 internal static class Svg
 {
     private static readonly Regex Tokens = new(@"[A-Za-z]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?", RegexOptions.Compiled);
@@ -463,7 +457,6 @@ internal static class Svg
         return path;
     }
 
-    // SVG spec F.6.5: endpoint -> center parameterization, then cubic segments of <= 90 degrees.
     private static void ArcTo(GraphicsPath path, PointF p0, float rx, float ry, float angle, bool large, bool sweep, PointF p1)
     {
         if (p0 == p1) return;
@@ -529,10 +522,6 @@ internal static class Svg
     }
 }
 
-// ---------------------------------------------------------------------------------------------
-// Elements (the "DOM"). Bounds are CSS pixels; page elements live in scrolled content space,
-// sidebar / menu / modal elements live in window space.
-// ---------------------------------------------------------------------------------------------
 
 internal abstract class El
 {
@@ -589,7 +578,6 @@ internal sealed class VStack : El
     }
 }
 
-// .main-content: padding 40px 20px, child column centered with max-width 900px.
 internal sealed class PageRoot : El
 {
     public El? Content;
@@ -608,7 +596,6 @@ internal sealed class PageRoot : El
     public override void Paint(Painter p) => Content?.Paint(p);
 }
 
-// .title-text
 internal sealed class TitleEl : El
 {
     private static readonly FontSpec Font = FontSpec.Heavy(36);
@@ -630,7 +617,6 @@ internal sealed class TitleEl : El
         p.Text(text, Font, Color.White, Bounds, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 }
 
-// .tab-btn
 internal sealed class TabEl : El
 {
     public static readonly FontSpec Font = FontSpec.Body(15, FontStyle.Bold);
@@ -665,7 +651,6 @@ internal sealed class TabEl : El
     public override void Click() => onClick();
 }
 
-// .category-tabs (centered, wrapping, 16px gap, 1px bottom border)
 internal sealed class TabsEl : El
 {
     public readonly List<TabEl> Tabs = new();
@@ -718,7 +703,6 @@ internal sealed class TabsEl : El
     }
 }
 
-// .loading-spinner
 internal sealed class LoadingEl : El
 {
     private static readonly FontSpec Font = FontSpec.Body(16);
@@ -743,7 +727,6 @@ internal sealed class LoadingEl : El
     }
 }
 
-// .error-box
 internal sealed class MessageEl : El
 {
     private static readonly FontSpec Font = FontSpec.Body(16);
@@ -786,7 +769,6 @@ internal sealed class MessageEl : El
     }
 }
 
-// .download-action-btn (+ .secondary-btn, .downloading, :disabled)
 internal sealed class ActionButton : El
 {
     public static readonly FontSpec Font = FontSpec.Body(15, FontStyle.Bold);
@@ -804,12 +786,13 @@ internal sealed class ActionButton : El
     public bool Downloading;
     public bool Disabled;
     public bool Danger;
+    public bool Busy;
     public Color Backdrop = Theme.Panel;
     public Action? OnClick;
 
     public override bool Clickable => true;
     public override bool Enabled => !Disabled;
-    public override Cursor Cursor => Downloading ? Cursors.WaitCursor : Disabled ? Cursors.No : Cursors.Hand;
+    public override Cursor Cursor => Downloading || Busy ? Cursors.WaitCursor : Disabled ? Cursors.No : Cursors.Hand;
 
     public override float PreferredWidth(Ui ui) =>
         Math.Max(140f, 36f + (IconGlyph == Glyph.None ? 0f : 28f) + ui.Measure(Label, Font));
@@ -825,7 +808,7 @@ internal sealed class ActionButton : El
         var faded = Disabled && !Downloading;
         if (faded) p.PushOpacity(0.45f, Backdrop);
 
-        var k = 1f - 0.03f * PressT; // :active { transform: scale(.97) }
+        var k = 1f - 0.03f * PressT;
         var r = new RectangleF(
             Bounds.X + Bounds.Width * (1 - k) / 2, Bounds.Y + Bounds.Height * (1 - k) / 2,
             Bounds.Width * k, Bounds.Height * k);
@@ -849,7 +832,6 @@ internal sealed class ActionButton : El
     public override void Click() => OnClick?.Invoke();
 }
 
-// .icon-btn (3-dot menu button)
 internal sealed class KebabButton : El
 {
     public Func<bool>? IsExpanded;
@@ -875,7 +857,6 @@ internal sealed class KebabButton : El
     public override void Click() => OnClick?.Invoke();
 }
 
-// .version-box (also used for installed servers)
 internal sealed class VersionBox : El
 {
     private static readonly FontSpec TitleFont = FontSpec.Body(16, FontStyle.Bold);
@@ -926,7 +907,6 @@ internal sealed class VersionBox : El
 
     public override void Paint(Painter p)
     {
-        // @keyframes fadeInBox: opacity 0 -> 1, translateY(12px) -> 0, .25s ease-out
         var t = (float)Math.Min(1.0, Stopwatch.GetElapsedTime(born).TotalSeconds / 0.25);
         var eased = 1f - (1f - t) * (1f - t) * (1f - t);
         var fading = eased < 0.999f;
@@ -963,7 +943,6 @@ internal sealed class VersionBox : El
     }
 }
 
-// .notice
 internal sealed class NoticeEl : El
 {
     private static readonly FontSpec Font = FontSpec.Body(14, FontStyle.Regular, 1.5f);
@@ -1005,7 +984,6 @@ internal sealed class NoticeEl : El
     }
 }
 
-// .settings-section
 internal sealed class SettingsSection : El
 {
     private static readonly FontSpec NameFont = FontSpec.Body(16, FontStyle.Bold);
@@ -1083,7 +1061,6 @@ internal sealed class SettingsSection : El
     }
 }
 
-// .modal-card h2
 internal sealed class HeadingEl : El
 {
     private static readonly FontSpec Font = FontSpec.Body(20, FontStyle.Bold);
@@ -1110,7 +1087,6 @@ internal sealed class HeadingEl : El
     }
 }
 
-// Paragraph text with inline <code> chips (modal body copy).
 internal sealed class RichTextEl : El
 {
     private static readonly FontSpec CodeFont = FontSpec.Mono(11.5f);
@@ -1194,7 +1170,6 @@ internal sealed class RichTextEl : El
     }
 }
 
-// <input type="range"> with accent-color: #ff5722
 internal sealed class SliderEl : El
 {
     public SliderEl(int min, int max, int value)
@@ -1250,7 +1225,6 @@ internal sealed class SliderEl : El
     }
 }
 
-// .ram-row
 internal sealed class SliderRow : El
 {
     private static readonly FontSpec ValueFont = FontSpec.Heavy(22);
@@ -1259,6 +1233,7 @@ internal sealed class SliderRow : El
     public SliderRow(SliderEl slider) => Slider = slider;
 
     public SliderEl Slider { get; }
+    public Func<bool>? Warn;
     public override IEnumerable<El> Kids => new El[] { Slider };
 
     public override float Arrange(Ui ui, float x, float y, float width)
@@ -1274,11 +1249,46 @@ internal sealed class SliderRow : El
     public override void Paint(Painter p)
     {
         Slider.Paint(p);
-        p.Text($"{Slider.Value} GB", ValueFont, Color.White, valueRect, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+        var color = Warn?.Invoke() == true ? Theme.Warning : Color.White;
+        p.Text($"{Slider.Value} GB", ValueFont, color, valueRect, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
     }
 }
 
-// .modal-actions
+internal sealed class RamHintEl : El
+{
+    private static readonly FontSpec Font = FontSpec.Body(13, FontStyle.Regular, 1.6f);
+    private readonly string normal;
+    private readonly string warning;
+    private readonly Func<bool> isWarning;
+    private List<string> normalLines = new();
+    private List<string> warningLines = new();
+
+    public RamHintEl(string normal, string warning, Func<bool> isWarning)
+    {
+        this.normal = normal;
+        this.warning = warning;
+        this.isWarning = isWarning;
+    }
+
+    public override float Arrange(Ui ui, float x, float y, float width)
+    {
+        normalLines = ui.Wrap(normal, Font, width);
+        warningLines = ui.Wrap(warning, Font, width);
+        var height = Math.Max(normalLines.Count, warningLines.Count) * Font.Line;
+        Bounds = new RectangleF(x, y, width, height);
+        return height;
+    }
+
+    public override void Paint(Painter p)
+    {
+        var warn = isWarning();
+        var lines = warn ? warningLines : normalLines;
+        var color = warn ? Theme.Warning : Theme.Muted;
+        for (var i = 0; i < lines.Count; i++)
+            p.Text(lines[i], Font, color, new RectangleF(Bounds.X, Bounds.Y + i * Font.Line, Bounds.Width, Font.Line));
+    }
+}
+
 internal sealed class ButtonRow : El
 {
     private readonly ActionButton[] buttons;
@@ -1310,7 +1320,6 @@ internal sealed class ButtonRow : El
     }
 }
 
-// .modal-card
 internal sealed class ModalCard : El
 {
     private readonly El[] blocks;
@@ -1348,7 +1357,6 @@ internal sealed class ModalCard : El
 
 internal sealed record MenuItemSpec(string Label, Action Action, bool Danger = false);
 
-// .context-menu button
 internal sealed class MenuItemEl : El
 {
     public static readonly FontSpec Font = FontSpec.Body(14);
@@ -1381,7 +1389,6 @@ internal sealed class MenuItemEl : El
     public override void Click() => action();
 }
 
-// .context-menu
 internal sealed class MenuEl : El
 {
     private readonly MenuItemEl[] items;
@@ -1415,7 +1422,6 @@ internal sealed class MenuEl : El
     }
 }
 
-// .panel-btn
 internal sealed class SidebarButton : El
 {
     private readonly Glyph glyph;
@@ -1451,9 +1457,6 @@ internal sealed class SidebarButton : El
     public override void Click() => onClick();
 }
 
-// ---------------------------------------------------------------------------------------------
-// Surface: one double-buffered control that paints the whole window like the browser does.
-// ---------------------------------------------------------------------------------------------
 internal sealed class Surface : Control
 {
     public const float SidebarWidth = 75f;
@@ -1516,7 +1519,6 @@ internal sealed class Surface : Control
     private float MaxScroll => Math.Max(0f, contentHeight - LH);
     private double Now => clock.Elapsed.TotalSeconds;
 
-    // ----- public API -----
 
     public void Relayout()
     {
@@ -1606,7 +1608,6 @@ internal sealed class Surface : Control
         Invalidate();
     }
 
-    // ----- lifecycle -----
 
     protected override void OnHandleCreated(EventArgs e)
     {
@@ -1642,7 +1643,6 @@ internal sealed class Surface : Control
         base.Dispose(disposing);
     }
 
-    // ----- painting -----
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -1682,7 +1682,6 @@ internal sealed class Surface : Control
         }
     }
 
-    // .toast-notification (fades + slides, text kept crisp via a cached ClearType bitmap)
     private void PaintToast(Graphics g, Painter p)
     {
         if (toastText is null || toastT <= 0.001f) return;
@@ -1741,7 +1740,6 @@ internal sealed class Surface : Control
         }
     }
 
-    // ----- input -----
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
@@ -1898,7 +1896,6 @@ internal sealed class Surface : Control
         if (delta is float d) ScrollBy(d);
     }
 
-    // ----- internals -----
 
     private IEnumerable<SidebarButton> Navs()
     {
