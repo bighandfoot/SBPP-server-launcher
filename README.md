@@ -1,5 +1,7 @@
 # Minecraft Server Launcher
 
+<img width="1099" height="752" alt="Screenshot 2026-10-06 182216" src="https://github.com/user-attachments/assets/bd541598-b900-4229-95a8-906d5ae4f770" />
+
 A simple, user-friendly desktop application to download, manage, and launch different versions of Minecraft servers (Spigot, Bukkit, Paper, Purpur).
 
 ## Installation & Running
